@@ -1,0 +1,180 @@
+/* ===== 頁面通用佈局 ===== */
+main {
+  padding-top: 70px; /* 導覽列高度補償 */
+  min-height: 100vh;
+}
+
+.page {
+  min-height: calc(100vh - 70px);
+  padding: var(--spacing-xl) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-xl);
+}
+
+/* ===== Feed 頁 ===== */
+#feed-page {
+  padding-top: var(--spacing-2xl);
+}
+
+.feed-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.feed-title {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+  line-height: 2;
+  margin-bottom: var(--spacing-sm);
+}
+
+.feed-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Feed 頁卡片區域 */
+.feed-card-wrapper {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Feed 頁錯誤/訊息區 */
+#feed-feedback {
+  width: 100%;
+  max-width: 640px;
+  min-height: 1.5rem;
+}
+
+/* ===== Post 頁 ===== */
+#post-page {
+  padding-top: var(--spacing-2xl);
+}
+
+.post-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.post-title {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+  line-height: 2;
+  margin-bottom: var(--spacing-sm);
+}
+
+.post-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* 投稿表單容器 */
+.post-form-wrapper {
+  width: 100%;
+  max-width: 640px;
+  background: var(--color-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--color-border);
+  border-radius: var(--glass-radius);
+  padding: var(--spacing-xl);
+}
+
+/* 投稿表單 */
+#post-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* 投稿輸入框 */
+#post-input {
+  width: 100%;
+  min-height: 160px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#post-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+#post-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+/* 送出按鈕 */
+#post-submit {
+  align-self: flex-end;
+  font-size: 0.55rem;
+  background: rgba(124, 58, 237, 0.2);
+  padding: var(--spacing-sm) var(--spacing-lg);
+}
+
+#post-submit:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.35);
+}
+
+/* 投稿回饋訊息區 */
+#post-feedback {
+  min-height: 1.5rem;
+  margin-top: var(--spacing-xs);
+}
+
+/* 投稿成功後的頭像顯示區 */
+.post-success-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) 0;
+}
+
+/* ===== 響應式設計 ===== */
+@media (max-width: 480px) {
+  .page {
+    padding: var(--spacing-lg) var(--spacing-sm);
+  }
+
+  .story-card {
+    padding: var(--spacing-lg);
+  }
+
+  .post-form-wrapper {
+    padding: var(--spacing-lg);
+  }
+
+  #nav-bar {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .nav-brand {
+    font-size: 0.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.45rem;
+  }
+}

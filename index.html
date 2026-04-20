@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="魯蛇回收站 TrashMatch — 大家都沒救了，不如就在一起吧。" />
+  <title>魯蛇回收站 TrashMatch</title>
+
+  <!-- Google Fonts：像素風字型 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- CSS 樣式表 -->
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <link rel="stylesheet" href="css/chat.css" />
+</head>
+<body>
+
+  <!-- ===== 像素風導覽列 ===== -->
+  <nav id="nav-bar" role="navigation" aria-label="主要導覽">
+    <span class="nav-brand">🗑️ TrashMatch</span>
+    <ul class="nav-links" role="list">
+      <li>
+        <a href="#feed" class="nav-link active" data-page="feed" aria-current="page">
+          首頁
+        </a>
+      </li>
+      <li>
+        <a href="#post" class="nav-link" data-page="post">
+          投稿
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- ===== 主要內容區 ===== -->
+  <main>
+
+    <!-- Feed 頁：隨機慘事展示 -->
+    <section id="feed-page" class="page" aria-label="首頁 — 慘事展示">
+
+      <!-- 頁面標題與口號 -->
+      <header class="feed-header">
+        <h1 class="feed-title">魯蛇回收站</h1>
+        <!-- 口號文字（需求 7.4）-->
+        <p class="slogan">大家都沒救了，不如就在一起吧。</p>
+      </header>
+
+      <!-- 慘事卡片 -->
+      <div class="feed-card-wrapper">
+        <article id="story-card" class="story-card" aria-live="polite" aria-label="慘事卡片">
+
+          <!-- 卡片頭部：頭像 + 匿名標示 -->
+          <div class="story-card__header">
+            <!-- 醜萌垃圾桶頭像（像素風 SVG）-->
+            <div class="avatar" aria-hidden="true">
+              <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <!-- 垃圾桶蓋 -->
+                <rect x="2" y="2" width="12" height="2" fill="#7c3aed"/>
+                <rect x="5" y="1" width="6" height="1" fill="#7c3aed"/>
+                <!-- 垃圾桶身體 -->
+                <rect x="3" y="4" width="10" height="10" fill="#5b21b6"/>
+                <!-- 垃圾桶條紋 -->
+                <rect x="5" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+                <rect x="7" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+                <rect x="9" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+                <!-- 眼睛 -->
+                <rect x="5" y="6" width="2" height="2" fill="#e2e8f0"/>
+                <rect x="9" y="6" width="2" height="2" fill="#e2e8f0"/>
+                <!-- 嘴巴（苦笑）-->
+                <rect x="5" y="10" width="1" height="1" fill="#e2e8f0"/>
+                <rect x="6" y="11" width="4" height="1" fill="#e2e8f0"/>
+                <rect x="10" y="10" width="1" height="1" fill="#e2e8f0"/>
+              </svg>
+            </div>
+            <span class="story-card__anon" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-text-muted);">
+              匿名魯蛇
+            </span>
+          </div>
+
+          <!-- 慘事內容 -->
+          <div id="story-content" class="story-card__content" aria-label="慘事內容">
+            <!-- 由 renderer.js 動態填入 -->
+            <span style="color: var(--color-text-muted); font-size: 0.85rem;">載入中…</span>
+          </div>
+
+          <!-- 卡片底部：拍拍數 + 操作按鈕 -->
+          <div class="story-card__footer">
+            <!-- 拍拍數顯示 -->
+            <div class="pat-count" aria-label="拍拍數">
+              <span id="pat-count">0</span>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <!-- 拍拍按鈕 -->
+              <button
+                id="pat-btn"
+                class="pixel-btn pat-btn"
+                type="button"
+                aria-label="給這則慘事拍拍"
+              >
+                <span class="pat-icon" aria-hidden="true">✋</span>
+                拍拍
+              </button>
+
+              <!-- 換一則按鈕 -->
+              <button
+                id="next-btn"
+                class="pixel-btn next-btn"
+                type="button"
+                aria-label="換一則慘事"
+              >
+                換一則
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Feed 頁錯誤/訊息區 -->
+        <div id="feed-feedback" role="alert" aria-live="assertive"></div>
+      </div>
+
+    </section>
+
+    <!-- Post 頁：投稿慘事（預設隱藏）-->
+    <section id="post-page" class="page hidden" aria-label="投稿頁 — 分享你的慘事">
+
+      <!-- 頁面標題 -->
+      <header class="post-header">
+        <h2 class="post-title">投稿慘事</h2>
+        <p class="post-subtitle" style="font-family: var(--font-mono); color: var(--color-text-muted);">
+          說說你有多慘，讓大家知道你的處境
+        </p>
+      </header>
+
+      <!-- 投稿表單容器 -->
+      <div class="post-form-wrapper">
+
+        <!-- 投稿成功後的頭像顯示區（預設隱藏）-->
+        <div class="post-success-avatar hidden" id="post-success-avatar" aria-hidden="true">
+          <div class="avatar avatar--large">
+            <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="2" width="12" height="2" fill="#7c3aed"/>
+              <rect x="5" y="1" width="6" height="1" fill="#7c3aed"/>
+              <rect x="3" y="4" width="10" height="10" fill="#5b21b6"/>
+              <rect x="5" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+              <rect x="7" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+              <rect x="9" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
+              <rect x="5" y="6" width="2" height="2" fill="#e2e8f0"/>
+              <rect x="9" y="6" width="2" height="2" fill="#e2e8f0"/>
+              <rect x="5" y="10" width="1" height="1" fill="#e2e8f0"/>
+              <rect x="6" y="11" width="4" height="1" fill="#e2e8f0"/>
+              <rect x="10" y="10" width="1" height="1" fill="#e2e8f0"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 投稿表單 -->
+        <form id="post-form" novalidate>
+          <label for="post-input" class="visually-hidden">輸入你的慘事</label>
+          <textarea
+            id="post-input"
+            name="content"
+            placeholder="說說你有多慘…"
+            rows="6"
+            maxlength="500"
+            aria-required="true"
+            aria-describedby="post-feedback"
+          ></textarea>
+
+          <!-- 投稿回饋訊息區 -->
+          <div id="post-feedback" role="alert" aria-live="assertive"></div>
+
+          <!-- 送出按鈕 -->
+          <button
+            id="post-submit"
+            class="pixel-btn"
+            type="submit"
+            aria-label="送出我的慘事"
+          >
+            我也沒救了，送出
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ===== 聊天室面板（預設隱藏，從右側滑入）===== -->
+  <aside
+    id="chat-panel"
+    class="chat-panel hidden"
+    role="complementary"
+    aria-label="聊天室"
+    aria-hidden="true"
+  >
+    <!-- 聊天室標題列 -->
+    <div class="chat-panel__header">
+      <h2 class="chat-panel__title">💬 配對成功</h2>
+      <button
+        id="chat-close-btn"
+        type="button"
+        aria-label="關閉聊天室"
+      >
+        ✕ 關閉
+      </button>
+    </div>
+
+    <!-- 聊天室主體 -->
+    <div class="chat-panel__body">
+      <!-- 開場白（需求 4.4）-->
+      <p class="chat-panel__greeting">
+        你們都沒救了，<br />不如聊聊吧 💬
+      </p>
+
+      <!-- 靜態佔位介面（需求 4.5）-->
+      <div class="chat-panel__placeholder">
+        <div class="chat-panel__placeholder-icon" aria-hidden="true">🗑️</div>
+        <p class="chat-panel__placeholder-text">
+          聊天功能即將上線<br />
+          <span style="color: var(--color-text-muted); font-size: 0.75rem;">
+            目前為靜態佔位介面
+          </span>
+        </p>
+      </div>
+    </div>
+
+    <!-- 聊天室底部輸入區（佔位）-->
+    <div class="chat-panel__footer">
+      <input
+        type="text"
+        class="chat-panel__input-placeholder"
+        placeholder="聊天功能即將開放…"
+        disabled
+        aria-label="聊天輸入框（尚未開放）"
+      />
+    </div>
+  </aside>
+
+  <!-- JavaScript 模組 -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

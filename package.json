@@ -1,0 +1,16 @@
+{
+  "name": "trash-match-frontend",
+  "version": "1.0.0",
+  "description": "魯蛇回收站 TrashMatch 前端",
+  "type": "module",
+  "scripts": {
+    "test": "vitest --run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.0",
+    "fast-check": "^4.7.0",
+    "jsdom": "^29.0.2",
+    "vitest": "^1.6.0"
+  }
+}

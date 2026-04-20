@@ -1,0 +1,205 @@
+/* ===== Chat_Panel 滑入/滑出 Keyframe 動畫 ===== */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* ===== Chat_Panel 毛玻璃樣式 ===== */
+.chat-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 100vw;
+  z-index: 200;
+
+  /* 毛玻璃效果 */
+  background: rgba(13, 13, 26, 0.75);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-left: var(--pixel-border);
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 滑入動畫 class */
+.chat-panel.slide-in {
+  animation: slide-in 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* 滑出動畫 class */
+.chat-panel.slide-out {
+  animation: slide-out 0.3s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
+}
+
+/* ===== Chat_Panel 內部佈局 ===== */
+.chat-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(124, 58, 237, 0.1);
+  flex-shrink: 0;
+}
+
+.chat-panel__title {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+}
+
+/* 關閉按鈕 */
+#chat-close-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 2px solid var(--color-border);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, transform 0.1s, box-shadow 0.1s;
+  box-shadow: 2px 2px 0 var(--color-border);
+}
+
+#chat-close-btn:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+/* Chat_Panel 主體內容區 */
+.chat-panel__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  gap: var(--spacing-lg);
+  overflow-y: auto;
+}
+
+/* 開場白文字 */
+.chat-panel__greeting {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--color-text);
+  text-align: center;
+  line-height: 2.2;
+  letter-spacing: 0.05em;
+}
+
+/* 靜態佔位介面 */
+.chat-panel__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--glass-radius);
+  width: 100%;
+  text-align: center;
+}
+
+.chat-panel__placeholder-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.chat-panel__placeholder-text {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+/* Chat_Panel 底部輸入區（佔位）*/
+.chat-panel__footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+  background: rgba(13, 13, 26, 0.5);
+  flex-shrink: 0;
+}
+
+.chat-panel__input-placeholder {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ===== 遮罩層（點擊外部關閉）===== */
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* ===== 響應式設計 ===== */
+@media (max-width: 480px) {
+  .chat-panel {
+    width: 100vw;
+    border-left: none;
+    border-top: var(--pixel-border);
+    top: auto;
+    height: 85vh;
+    border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+  }
+
+  @keyframes slide-in {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-out {
+    from {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+}
