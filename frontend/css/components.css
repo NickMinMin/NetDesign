@@ -224,3 +224,40 @@
 .nav-link:not(:hover):not(.active) {
   box-shadow: 2px 2px 0 var(--color-accent);
 }
+
+/* ===== 圖片頭像 ===== */
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* ===== 拍拍按鈕圖示 ===== */
+.pat-icon-img {
+  width: 1.2rem;
+  height: 1.2rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
+/* ===== 聊天室佔位圖片 ===== */
+.chat-panel__placeholder-img {
+  width: 140px;
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  opacity: 0.85;
+}
+
+/* ===== Feed 頁英雄圖片 ===== */
+.feed-hero-img {
+  width: 220px;
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  margin: 0 auto var(--spacing-md);
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(124, 58, 237, 0.4));
+}

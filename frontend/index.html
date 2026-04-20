@@ -47,6 +47,7 @@
 
       <!-- 頁面標題與口號 -->
       <header class="feed-header">
+        <img src="images/cards.png" alt="" class="feed-hero-img" aria-hidden="true" />
         <h1 class="feed-title">魯蛇回收站</h1>
         <!-- 口號文字（需求 7.4）-->
         <p class="slogan">大家都沒救了，不如就在一起吧。</p>
@@ -58,26 +59,9 @@
 
           <!-- 卡片頭部：頭像 + 匿名標示 -->
           <div class="story-card__header">
-            <!-- 醜萌垃圾桶頭像（像素風 SVG）-->
+            <!-- 醜萌垃圾桶頭像 -->
             <div class="avatar" aria-hidden="true">
-              <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <!-- 垃圾桶蓋 -->
-                <rect x="2" y="2" width="12" height="2" fill="#7c3aed"/>
-                <rect x="5" y="1" width="6" height="1" fill="#7c3aed"/>
-                <!-- 垃圾桶身體 -->
-                <rect x="3" y="4" width="10" height="10" fill="#5b21b6"/>
-                <!-- 垃圾桶條紋 -->
-                <rect x="5" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-                <rect x="7" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-                <rect x="9" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-                <!-- 眼睛 -->
-                <rect x="5" y="6" width="2" height="2" fill="#e2e8f0"/>
-                <rect x="9" y="6" width="2" height="2" fill="#e2e8f0"/>
-                <!-- 嘴巴（苦笑）-->
-                <rect x="5" y="10" width="1" height="1" fill="#e2e8f0"/>
-                <rect x="6" y="11" width="4" height="1" fill="#e2e8f0"/>
-                <rect x="10" y="10" width="1" height="1" fill="#e2e8f0"/>
-              </svg>
+              <img src="images/trash.png" alt="垃圾桶頭像" class="avatar-img" />
             </div>
             <span class="story-card__anon" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-text-muted);">
               匿名魯蛇
@@ -105,7 +89,7 @@
                 type="button"
                 aria-label="給這則慘事拍拍"
               >
-                <span class="pat-icon" aria-hidden="true">✋</span>
+                <img src="images/heart.png" alt="" class="pat-icon-img" aria-hidden="true" />
                 拍拍
               </button>
 
@@ -145,19 +129,7 @@
         <!-- 投稿成功後的頭像顯示區（預設隱藏）-->
         <div class="post-success-avatar hidden" id="post-success-avatar" aria-hidden="true">
           <div class="avatar avatar--large">
-            <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <rect x="2" y="2" width="12" height="2" fill="#7c3aed"/>
-              <rect x="5" y="1" width="6" height="1" fill="#7c3aed"/>
-              <rect x="3" y="4" width="10" height="10" fill="#5b21b6"/>
-              <rect x="5" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-              <rect x="7" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-              <rect x="9" y="5" width="1" height="8" fill="#7c3aed" opacity="0.6"/>
-              <rect x="5" y="6" width="2" height="2" fill="#e2e8f0"/>
-              <rect x="9" y="6" width="2" height="2" fill="#e2e8f0"/>
-              <rect x="5" y="10" width="1" height="1" fill="#e2e8f0"/>
-              <rect x="6" y="11" width="4" height="1" fill="#e2e8f0"/>
-              <rect x="10" y="10" width="1" height="1" fill="#e2e8f0"/>
-            </svg>
+            <img src="images/trash.png" alt="垃圾桶頭像" class="avatar-img" />
           </div>
         </div>
 
@@ -222,7 +194,7 @@
 
       <!-- 靜態佔位介面（需求 4.5）-->
       <div class="chat-panel__placeholder">
-        <div class="chat-panel__placeholder-icon" aria-hidden="true">🗑️</div>
+        <img src="images/chat.png" alt="聊天室圖示" class="chat-panel__placeholder-img" />
         <p class="chat-panel__placeholder-text">
           聊天功能即將上線<br />
           <span style="color: var(--color-text-muted); font-size: 0.75rem;">
