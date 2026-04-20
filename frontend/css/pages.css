@@ -1,6 +1,6 @@
 /* ===== 頁面通用佈局 ===== */
 main {
-  padding-top: 70px; /* 導覽列高度補償 */
+  padding-top: 70px;
   min-height: 100vh;
 }
 
@@ -21,25 +21,22 @@ main {
 
 .feed-header {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
 }
 
 .feed-title {
   font-family: var(--font-pixel);
-  font-size: 0.75rem;
-  color: var(--color-accent);
-  letter-spacing: 0.1em;
-  line-height: 2;
-  margin-bottom: var(--spacing-sm);
-}
-
-.feed-subtitle {
-  font-family: var(--font-mono);
   font-size: 0.85rem;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
+  letter-spacing: 0.12em;
+  line-height: 2;
+  text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
 }
 
-/* Feed 頁卡片區域 */
 .feed-card-wrapper {
   width: 100%;
   max-width: 640px;
@@ -48,7 +45,6 @@ main {
   gap: var(--spacing-md);
 }
 
-/* Feed 頁錯誤/訊息區 */
 #feed-feedback {
   width: 100%;
   max-width: 640px;
@@ -63,15 +59,19 @@ main {
 .post-header {
   text-align: center;
   margin-bottom: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .post-title {
   font-family: var(--font-pixel);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--color-accent);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   line-height: 2;
-  margin-bottom: var(--spacing-sm);
+  text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
 }
 
 .post-subtitle {
@@ -84,66 +84,63 @@ main {
 .post-form-wrapper {
   width: 100%;
   max-width: 640px;
-  background: var(--color-surface);
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--glass-radius);
   padding: var(--spacing-xl);
+  transform: rotate(0.5deg);
+  transition: transform var(--anim-fast), box-shadow var(--anim-fast);
 }
 
-/* 投稿表單 */
+.post-form-wrapper:focus-within {
+  transform: rotate(0deg);
+  box-shadow: 0 0 0 2px rgba(255, 110, 180, 0.25), 0 12px 40px rgba(124, 58, 237, 0.2);
+}
+
 #post-form {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
 }
 
-/* 投稿輸入框 */
 #post-input {
   width: 100%;
   min-height: 160px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: var(--spacing-md);
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 0.95rem;
-  line-height: 1.7;
+  line-height: 1.8;
   resize: vertical;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--anim-fast), box-shadow var(--anim-fast);
 }
 
 #post-input::placeholder {
   color: var(--color-text-muted);
+  opacity: 0.7;
 }
 
 #post-input:focus {
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  border-color: var(--color-pink);
+  box-shadow: 0 0 0 2px rgba(255, 110, 180, 0.2);
 }
 
-/* 送出按鈕 */
 #post-submit {
   align-self: flex-end;
-  font-size: 0.55rem;
-  background: rgba(124, 58, 237, 0.2);
   padding: var(--spacing-sm) var(--spacing-lg);
 }
 
-#post-submit:hover:not(:disabled) {
-  background: rgba(124, 58, 237, 0.35);
-}
-
-/* 投稿回饋訊息區 */
 #post-feedback {
   min-height: 1.5rem;
   margin-top: var(--spacing-xs);
 }
 
-/* 投稿成功後的頭像顯示區 */
 .post-success-avatar {
   display: flex;
   flex-direction: column;
@@ -152,7 +149,7 @@ main {
   padding: var(--spacing-md) 0;
 }
 
-/* ===== 響應式設計 ===== */
+/* ===== 響應式 ===== */
 @media (max-width: 480px) {
   .page {
     padding: var(--spacing-lg) var(--spacing-sm);
@@ -164,17 +161,15 @@ main {
 
   .post-form-wrapper {
     padding: var(--spacing-lg);
+    transform: none;
   }
 
   #nav-bar {
     padding: var(--spacing-sm) var(--spacing-md);
   }
 
-  .nav-brand {
-    font-size: 0.5rem;
-  }
+  .nav-brand { font-size: 0.5rem; }
+  .nav-link  { font-size: 0.42rem; }
 
-  .nav-link {
-    font-size: 0.45rem;
-  }
+  .feed-title { font-size: 0.65rem; }
 }
