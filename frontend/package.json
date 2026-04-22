@@ -1,7 +1,7 @@
 {
   "name": "trash-match-frontend",
   "version": "1.0.0",
-  "description": "魯蛇回收站 TrashMatch 前端",
+  "description": "衰鬼回收站 TrashMatch 前端",
   "type": "module",
   "scripts": {
     "test": "vitest --run",

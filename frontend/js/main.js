@@ -1,6 +1,6 @@
 /**
  * main.js — 應用程式進入點
- * 初始化所有模組，啟動魯蛇回收站 TrashMatch 前端應用程式
+ * 初始化所有模組，啟動衰鬼回收站 TrashMatch 前端應用程式
  */
 
 import { router } from './router.js'

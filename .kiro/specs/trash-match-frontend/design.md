@@ -1,8 +1,8 @@
-# 設計文件：魯蛇回收站 TrashMatch 前端
+# 設計文件：衰鬼回收站 TrashMatch 前端
 
 ## 概覽
 
-「魯蛇回收站 TrashMatch」前端是一個以「比慘」為核心互動機制的反向社交匿名平台前端實作。
+「衰鬼回收站 TrashMatch」前端是一個以「比慘」為核心互動機制的反向社交匿名平台前端實作。
 採用純 HTML/CSS/Vanilla JavaScript（無框架），以毛玻璃（Glassmorphism）與像素風（Pixel Art）混搭的視覺風格，
 透過 Fetch API 串接後端 REST API。
 
