@@ -5,9 +5,19 @@
   "type": "module",
   "scripts": {
     "test": "vitest --run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:firefox": "playwright test --project=firefox",
+    "test:e2e:webkit": "playwright test --project=webkit",
+    "test:e2e:mobile": "playwright test tests/e2e/mobile-quick.spec.js --project=mobile-safari --project=mobile-chrome",
+    "test:e2e:mobile-safari": "playwright test tests/e2e/mobile-quick.spec.js --project=mobile-safari",
+    "test:e2e:mobile-chrome": "playwright test tests/e2e/mobile-quick.spec.js --project=mobile-chrome",
+    "test:e2e:report": "playwright show-report"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@vitest/coverage-v8": "^1.6.0",
     "fast-check": "^4.7.0",
     "jsdom": "^29.0.2",

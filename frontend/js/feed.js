@@ -63,9 +63,18 @@ async function handlePat() {
         pat_count: result.data.pat_count,
       }
 
-      // 若配對解鎖，開啟聊天室（需求 2.3）
+      // 若配對解鎖，開啟聊天室（需求 1.2, 1.3）
       if (result.data.match_unlocked) {
-        router.openChat()
+        // 取得聊天室 ID
+        const chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
+        
+        if (chatRoomResult.ok && chatRoomResult.data) {
+          // 開啟聊天室，傳入聊天室 ID 和慘事 ID
+          router.openChat(chatRoomResult.data.chat_room_id, feedState.currentStory.id)
+        } else {
+          // 取得聊天室 ID 失敗，顯示錯誤訊息
+          renderer.renderError(feedbackEl, '聊天室載入失敗，連系統都放棄你了')
+        }
       }
     } else {
       // 拍拍失敗：顯示錯誤訊息（需求 2.5）

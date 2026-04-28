@@ -15,6 +15,7 @@ vi.mock('./fetchClient.js', () => ({
   fetchClient: {
     getRandomStory: vi.fn(),
     patStory: vi.fn(),
+    getChatRoomId: vi.fn(),
   },
 }))
 
@@ -303,13 +304,18 @@ describe('feed.js 單元測試', () => {
   // ─────────────────────────────────────────────
 
   describe('拍拍回應 match_unlocked=true', () => {
-    it('應呼叫 router.openChat()', async () => {
+    it('應呼叫 fetchClient.getChatRoomId() 並呼叫 router.openChat()', async () => {
       const mockStory = { id: 'story-1', content: '慘事', pat_count: 2 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
       fetchClient.patStory.mockResolvedValue({
         ok: true,
         status: 200,
         data: { pat_count: 3, match_unlocked: true },
+      })
+      fetchClient.getChatRoomId.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { chat_room_id: 42, created_at: '2025-01-15T10:30:00Z' },
       })
 
       feed.init()
@@ -318,11 +324,41 @@ describe('feed.js 單元測試', () => {
       document.getElementById('pat-btn').click()
 
       await vi.waitFor(() => {
-        expect(router.openChat).toHaveBeenCalledTimes(1)
+        expect(fetchClient.getChatRoomId).toHaveBeenCalledWith('story-1')
+        expect(router.openChat).toHaveBeenCalledWith(42, 'story-1')
       })
     })
 
-    it('match_unlocked=false 時不應呼叫 router.openChat()', async () => {
+    it('getChatRoomId 失敗時應顯示錯誤訊息', async () => {
+      const mockStory = { id: 'story-1', content: '慘事', pat_count: 2 }
+      fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
+      fetchClient.patStory.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { pat_count: 3, match_unlocked: true },
+      })
+      fetchClient.getChatRoomId.mockResolvedValue({
+        ok: false,
+        status: 500,
+        data: null,
+      })
+
+      feed.init()
+      await vi.waitFor(() => expect(feedState.currentStory).toEqual(mockStory))
+
+      document.getElementById('pat-btn').click()
+
+      await vi.waitFor(() => {
+        expect(renderer.renderError).toHaveBeenCalledWith(
+          document.getElementById('feed-feedback'),
+          '聊天室載入失敗，連系統都放棄你了'
+        )
+      })
+      
+      expect(router.openChat).not.toHaveBeenCalled()
+    })
+
+    it('match_unlocked=false 時不應呼叫 getChatRoomId 或 router.openChat()', async () => {
       const mockStory = { id: 'story-1', content: '慘事', pat_count: 0 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
       fetchClient.patStory.mockResolvedValue({
@@ -340,6 +376,7 @@ describe('feed.js 單元測試', () => {
         expect(renderer.updatePatCount).toHaveBeenCalled()
       })
 
+      expect(fetchClient.getChatRoomId).not.toHaveBeenCalled()
       expect(router.openChat).not.toHaveBeenCalled()
     })
   })

@@ -3,6 +3,8 @@
  * 負責頁面切換（#feed / #post）與 Chat_Panel 動畫控制
  */
 
+import { chat } from './chat.js'
+
 // 頁面 hash 對應的容器 ID 對照表
 const PAGE_MAP = {
   '#feed': 'feed-page',
@@ -65,12 +67,21 @@ export const router = {
   },
 
   /**
-   * 觸發 Chat_Panel 滑入動畫
+   * 觸發 Chat_Panel 滑入動畫並初始化聊天室
    * 移除 hidden class，加上 slide-in class，移除 slide-out class
+   * @param {string|number} chatRoomId - 聊天室 ID
+   * @param {string|number} storyId - 慘事 ID（可選，用於發送訊息）
    */
-  openChat() {
+  openChat(chatRoomId, storyId = null) {
     const panel = document.getElementById('chat-panel')
     if (!panel) return
+    
+    // 初始化聊天室（載入訊息並啟動輪詢）
+    if (chatRoomId) {
+      chat.open(chatRoomId, storyId)
+    }
+    
+    // 觸發滑入動畫
     panel.classList.remove('hidden')
     panel.classList.remove('slide-out')
     panel.classList.add('slide-in')
@@ -81,10 +92,15 @@ export const router = {
    * 觸發 Chat_Panel 滑出動畫
    * 加上 slide-out class，移除 slide-in class
    * 動畫結束後加回 hidden class 並設定 aria-hidden="true"
+   * 同時呼叫 chat.close() 停止輪詢並保留狀態
    */
   closeChat() {
     const panel = document.getElementById('chat-panel')
     if (!panel) return
+    
+    // 呼叫 chat.close() 停止輪詢並保留狀態
+    chat.close()
+    
     panel.classList.add('slide-out')
     panel.classList.remove('slide-in')
 

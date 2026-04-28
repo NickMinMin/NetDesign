@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchClient } from './fetchClient.js'
+import { fetchClient, getErrorMessage } from './fetchClient.js'
 
 // 建立模擬 fetch 回應的輔助函式
 function mockFetchResponse(status, body) {
@@ -178,6 +178,199 @@ describe('fetchClient', () => {
     })
   })
 
+  // ─── getChatRoomId ────────────────────────────────────────────────────────
+
+  describe('getChatRoomId(storyId)', () => {
+    it('回傳 200 時，ok=true 且 data 包含 chat_room_id 和 created_at', async () => {
+      const chatRoomData = { chat_room_id: 42, created_at: '2025-01-15T10:30:00Z' }
+      fetch.mockReturnValue(mockFetchResponse(200, chatRoomData))
+
+      const result = await fetchClient.getChatRoomId('abc123')
+
+      expect(result.ok).toBe(true)
+      expect(result.status).toBe(200)
+      expect(result.data.chat_room_id).toBe(42)
+      expect(result.data.created_at).toBe('2025-01-15T10:30:00Z')
+    })
+
+    it('回傳 404 時，ok=false', async () => {
+      fetch.mockReturnValue(mockFetchResponse(404, { message: '找不到慘事' }))
+
+      const result = await fetchClient.getChatRoomId('notexist')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(404)
+    })
+
+    it('回傳 400 時，ok=false（pat_count 不足）', async () => {
+      fetch.mockReturnValue(mockFetchResponse(400, { message: 'pat_count 必須 >= 3' }))
+
+      const result = await fetchClient.getChatRoomId('story-1')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(400)
+    })
+
+    it('呼叫正確的 API 端點 POST /api/chat-rooms，並傳入 JSON body', async () => {
+      fetch.mockReturnValue(mockFetchResponse(200, { chat_room_id: 1, created_at: '2025-01-15T10:30:00Z' }))
+
+      await fetchClient.getChatRoomId('story-99')
+
+      expect(fetch).toHaveBeenCalledWith('/api/chat-rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ story_id: 'story-99' }),
+      })
+    })
+  })
+
+  // ─── getMessages ──────────────────────────────────────────────────────────
+
+  describe('getMessages(chatRoomId, since)', () => {
+    it('回傳 200 時，ok=true 且 data 包含 messages 陣列', async () => {
+      const messagesData = {
+        messages: [
+          { id: 1, sender_story_id: 123, content: '你也很慘嗎？', created_at: '2025-01-15T10:31:00Z' },
+          { id: 2, sender_story_id: 456, content: '對啊，我們都沒救了', created_at: '2025-01-15T10:31:30Z' },
+        ]
+      }
+      fetch.mockReturnValue(mockFetchResponse(200, messagesData))
+
+      const result = await fetchClient.getMessages(42)
+
+      expect(result.ok).toBe(true)
+      expect(result.status).toBe(200)
+      expect(result.data.messages).toHaveLength(2)
+      expect(result.data.messages[0].content).toBe('你也很慘嗎？')
+    })
+
+    it('回傳 404 時，ok=false（聊天室不存在）', async () => {
+      fetch.mockReturnValue(mockFetchResponse(404, { message: '聊天室不存在' }))
+
+      const result = await fetchClient.getMessages(999)
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(404)
+    })
+
+    it('不帶 since 參數時，呼叫正確的 API 端點 GET /api/chat-rooms/<id>/messages', async () => {
+      fetch.mockReturnValue(mockFetchResponse(200, { messages: [] }))
+
+      await fetchClient.getMessages(42)
+
+      const callUrl = fetch.mock.calls[0][0]
+      expect(callUrl).toContain('/api/chat-rooms/42/messages')
+      expect(callUrl).not.toContain('since')
+    })
+
+    it('帶 since 參數時，正確帶入查詢參數', async () => {
+      fetch.mockReturnValue(mockFetchResponse(200, { messages: [] }))
+
+      await fetchClient.getMessages(42, '2025-01-15T10:31:00Z')
+
+      const callUrl = fetch.mock.calls[0][0]
+      expect(callUrl).toContain('/api/chat-rooms/42/messages')
+      expect(callUrl).toContain('since=2025-01-15T10%3A31%3A00Z')
+    })
+
+    it('回傳空訊息列表時，ok=true 且 messages 為空陣列', async () => {
+      fetch.mockReturnValue(mockFetchResponse(200, { messages: [] }))
+
+      const result = await fetchClient.getMessages(42)
+
+      expect(result.ok).toBe(true)
+      expect(result.data.messages).toEqual([])
+    })
+  })
+
+  // ─── sendMessage ──────────────────────────────────────────────────────────
+
+  describe('sendMessage(chatRoomId, senderStoryId, content)', () => {
+    it('回傳 201 時，ok=true 且 data 包含訊息資料', async () => {
+      const messageData = {
+        id: 3,
+        sender_story_id: 123,
+        content: '我們一起加油吧',
+        created_at: '2025-01-15T10:32:00Z'
+      }
+      fetch.mockReturnValue(mockFetchResponse(201, messageData))
+
+      const result = await fetchClient.sendMessage(42, 123, '我們一起加油吧')
+
+      expect(result.ok).toBe(true)
+      expect(result.status).toBe(201)
+      expect(result.data.id).toBe(3)
+      expect(result.data.content).toBe('我們一起加油吧')
+    })
+
+    it('回傳 404 時，ok=false（聊天室不存在）', async () => {
+      fetch.mockReturnValue(mockFetchResponse(404, { message: '聊天室不存在' }))
+
+      const result = await fetchClient.sendMessage(999, 123, '測試訊息')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(404)
+    })
+
+    it('回傳 400 時，ok=false（內容驗證失敗）', async () => {
+      fetch.mockReturnValue(mockFetchResponse(400, { message: '訊息不可為空白' }))
+
+      const result = await fetchClient.sendMessage(42, 123, '   ')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(400)
+    })
+
+    it('回傳 403 時，ok=false（非聊天室參與者）', async () => {
+      fetch.mockReturnValue(mockFetchResponse(403, { message: '你不是這個聊天室的成員' }))
+
+      const result = await fetchClient.sendMessage(42, 999, '測試訊息')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(403)
+    })
+
+    it('呼叫正確的 API 端點 POST /api/chat-rooms/<id>/messages，並傳入 JSON body', async () => {
+      fetch.mockReturnValue(mockFetchResponse(201, {
+        id: 1,
+        sender_story_id: 123,
+        content: '測試訊息',
+        created_at: '2025-01-15T10:32:00Z'
+      }))
+
+      await fetchClient.sendMessage(42, 123, '測試訊息')
+
+      expect(fetch).toHaveBeenCalledWith('/api/chat-rooms/42/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_story_id: 123,
+          content: '測試訊息',
+        }),
+      })
+    })
+
+    it('自動去除訊息內容的前後空白', async () => {
+      fetch.mockReturnValue(mockFetchResponse(201, {
+        id: 1,
+        sender_story_id: 123,
+        content: '測試訊息',
+        created_at: '2025-01-15T10:32:00Z'
+      }))
+
+      await fetchClient.sendMessage(42, 123, '  測試訊息  ')
+
+      expect(fetch).toHaveBeenCalledWith('/api/chat-rooms/42/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_story_id: 123,
+          content: '測試訊息',
+        }),
+      })
+    })
+  })
+
   // ─── 網路例外處理 ──────────────────────────────────────────────────────────
 
   describe('網路例外處理', () => {
@@ -217,6 +410,75 @@ describe('fetchClient', () => {
       expect(result.ok).toBe(false)
       expect(result.status).toBe(0)
       expect(result.data).toBeNull()
+    })
+
+    it('getChatRoomId 遇到網路例外時，ok=false、status=0、data=null', async () => {
+      fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+      const result = await fetchClient.getChatRoomId('some-id')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(0)
+      expect(result.data).toBeNull()
+    })
+
+    it('getMessages 遇到網路例外時，ok=false、status=0、data=null', async () => {
+      fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+      const result = await fetchClient.getMessages(42)
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(0)
+      expect(result.data).toBeNull()
+    })
+
+    it('sendMessage 遇到網路例外時，ok=false、status=0、data=null', async () => {
+      fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+      const result = await fetchClient.sendMessage(42, 123, '測試訊息')
+
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(0)
+      expect(result.data).toBeNull()
+    })
+  })
+
+  // ─── getErrorMessage ──────────────────────────────────────────────────────
+
+  describe('getErrorMessage(context, status)', () => {
+    it('context="pat" 時，回傳拍拍失敗訊息', () => {
+      const message = getErrorMessage('pat', 404)
+      expect(message).toBe('拍拍失敗，請稍後再試')
+    })
+
+    it('context="send_message" 時，回傳訊息送出失敗訊息', () => {
+      const message = getErrorMessage('send_message', 500)
+      expect(message).toBe('訊息送出失敗，你的話語迷失在虛空中')
+    })
+
+    it('context="load_chat" 時，回傳聊天室載入失敗訊息', () => {
+      const message = getErrorMessage('load_chat', 404)
+      expect(message).toBe('聊天室載入失敗，連系統都放棄你了')
+    })
+
+    it('context="load_story" 時，回傳無慘事訊息', () => {
+      const message = getErrorMessage('load_story', 404)
+      expect(message).toBe('目前沒有慘事，快去投稿吧！')
+    })
+
+    it('未知 context 時，回傳預設錯誤訊息', () => {
+      const message = getErrorMessage('unknown_context', 500)
+      expect(message).toBe('操作失敗，請稍後再試')
+    })
+
+    it('不同 HTTP 狀態碼不影響訊息內容（僅依 context 決定）', () => {
+      const message404 = getErrorMessage('pat', 404)
+      const message500 = getErrorMessage('pat', 500)
+      const message0 = getErrorMessage('pat', 0)
+      
+      expect(message404).toBe('拍拍失敗，請稍後再試')
+      expect(message500).toBe('拍拍失敗，請稍後再試')
+      expect(message0).toBe('拍拍失敗，請稍後再試')
     })
   })
 })

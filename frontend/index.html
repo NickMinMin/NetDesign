@@ -143,21 +143,24 @@
     </div>
 
     <div class="chat-panel__body">
-      <p class="chat-panel__greeting">
-        你們都沒救了，<br />不如聊聊吧 💬✨
-      </p>
-
-      <div class="chat-panel__placeholder">
-        <img src="images/chat.png" alt="聊天室圖示" class="chat-panel__placeholder-img" />
-        <p class="chat-panel__placeholder-text">
-          🚧 聊天功能即將上線<br />
-          <span class="chat-coming-soon">先互相拍拍對方的慘事吧</span>
+      <div id="chat-messages" class="chat-messages">
+        <p class="chat-panel__greeting">
+          你們都沒救了，<br />不如聊聊吧 💬✨
         </p>
+
+        <div class="chat-panel__placeholder">
+          <img src="images/chat.png" alt="聊天室圖示" class="chat-panel__placeholder-img" />
+          <p class="chat-panel__placeholder-text">
+            🚧 聊天功能即將上線<br />
+            <span class="chat-coming-soon">先互相拍拍對方的慘事吧</span>
+          </p>
+        </div>
       </div>
     </div>
 
     <div class="chat-panel__footer">
-      <input type="text" class="chat-panel__input-placeholder" placeholder="💬 聊天功能即將開放…" disabled aria-label="聊天輸入框（尚未開放）" />
+      <input id="chat-input" type="text" placeholder="輸入訊息…" aria-label="聊天輸入框" />
+      <button id="chat-send-btn" type="button" aria-label="送出訊息">送出</button>
     </div>
   </aside>
 

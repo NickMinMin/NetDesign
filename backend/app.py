@@ -101,14 +101,259 @@ def pat_story(story_id):
         (story_id,)
     )
     updated_story = cursor.fetchone()
-    conn.close()
-
     pat_count = updated_story["pat_count"]
 
-    return jsonify({
+    # Check if pat_count reached 3 and handle chat_room creation
+    chat_room_id = None
+    match_unlocked = False
+    
+    if pat_count >= 3:
+        match_unlocked = True
+        
+        # Check if chat_room already exists for this story
+        cursor.execute(
+            "SELECT id FROM chat_rooms WHERE story_id = ?",
+            (story_id,)
+        )
+        existing_chat_room = cursor.fetchone()
+        
+        if existing_chat_room:
+            # Chat room already exists, use existing ID
+            chat_room_id = existing_chat_room["id"]
+        else:
+            # Create new chat_room
+            cursor.execute(
+                "INSERT INTO chat_rooms (story_id) VALUES (?)",
+                (story_id,)
+            )
+            conn.commit()
+            chat_room_id = cursor.lastrowid
+    
+    conn.close()
+
+    response = {
         "pat_count": pat_count,
-        "match_unlocked": pat_count >= 3
+        "match_unlocked": match_unlocked
+    }
+    
+    if chat_room_id is not None:
+        response["chat_room_id"] = chat_room_id
+
+    return jsonify(response), 200
+
+
+@app.route("/api/chat-rooms", methods=["POST"])
+def create_chat_room():
+    data = request.get_json(silent=True) or {}
+    story_id = data.get("story_id")
+
+    if not story_id:
+        return jsonify({
+            "message": "story_id 參數為必填"
+        }), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Verify story exists and has pat_count >= 3
+    cursor.execute(
+        "SELECT id, pat_count FROM stories WHERE id = ?",
+        (story_id,)
+    )
+    story = cursor.fetchone()
+
+    if not story:
+        conn.close()
+        return jsonify({
+            "message": "慘事不存在"
+        }), 404
+
+    if story["pat_count"] < 3:
+        conn.close()
+        return jsonify({
+            "message": "拍拍數不足，無法解鎖聊天室"
+        }), 400
+
+    # Check if chat_room already exists (idempotency)
+    cursor.execute(
+        "SELECT id, created_at FROM chat_rooms WHERE story_id = ?",
+        (story_id,)
+    )
+    existing_chat_room = cursor.fetchone()
+
+    if existing_chat_room:
+        # Return existing chat_room_id
+        conn.close()
+        return jsonify({
+            "chat_room_id": existing_chat_room["id"],
+            "created_at": existing_chat_room["created_at"]
+        }), 200
+
+    # Create new chat_room
+    cursor.execute(
+        "INSERT INTO chat_rooms (story_id) VALUES (?)",
+        (story_id,)
+    )
+    conn.commit()
+    chat_room_id = cursor.lastrowid
+
+    cursor.execute(
+        "SELECT created_at FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+    conn.close()
+
+    return jsonify({
+        "chat_room_id": chat_room_id,
+        "created_at": chat_room["created_at"]
+    }), 201
+
+
+@app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["GET"])
+def get_messages(chat_room_id):
+    # Get optional 'since' query parameter
+    since = request.args.get("since")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verify chat_room exists
+    cursor.execute(
+        "SELECT id FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+    
+    if not chat_room:
+        conn.close()
+        return jsonify({
+            "message": "聊天室不存在"
+        }), 404
+    
+    # Build query based on whether 'since' parameter is provided
+    if since:
+        # Validate ISO 8601 format
+        try:
+            # Simple validation: check if it's a valid timestamp format
+            # SQLite will handle the comparison
+            cursor.execute(
+                "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? AND created_at > ? ORDER BY created_at ASC",
+                (chat_room_id, since)
+            )
+        except Exception as e:
+            conn.close()
+            return jsonify({
+                "message": "since 參數格式錯誤"
+            }), 400
+    else:
+        # Get all messages
+        cursor.execute(
+            "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? ORDER BY created_at ASC",
+            (chat_room_id,)
+        )
+    
+    messages = cursor.fetchall()
+    conn.close()
+    
+    # Convert to list of dictionaries
+    messages_list = [
+        {
+            "id": msg["id"],
+            "sender_story_id": msg["sender_story_id"],
+            "content": msg["content"],
+            "created_at": msg["created_at"]
+        }
+        for msg in messages
+    ]
+    
+    return jsonify({
+        "messages": messages_list
     }), 200
+
+
+@app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["POST"])
+def send_message(chat_room_id):
+    data = request.get_json(silent=True) or {}
+    sender_story_id = data.get("sender_story_id")
+    content = (data.get("content") or "").strip()
+    
+    # Validate content is not empty
+    if not content:
+        return jsonify({
+            "message": "訊息不可為空白"
+        }), 400
+    
+    # Validate content length (1-500 characters)
+    if len(content) > 500:
+        return jsonify({
+            "message": "訊息長度超過限制（最多 500 字）"
+        }), 400
+    
+    # Validate sender_story_id is provided
+    if not sender_story_id:
+        return jsonify({
+            "message": "sender_story_id 參數為必填"
+        }), 400
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verify chat_room exists
+    cursor.execute(
+        "SELECT id, story_id FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+    
+    if not chat_room:
+        conn.close()
+        return jsonify({
+            "message": "聊天室不存在"
+        }), 404
+    
+    # Verify sender_story_id exists
+    cursor.execute(
+        "SELECT id FROM stories WHERE id = ?",
+        (sender_story_id,)
+    )
+    sender_story = cursor.fetchone()
+    
+    if not sender_story:
+        conn.close()
+        return jsonify({
+            "message": "發送者慘事不存在"
+        }), 403
+    
+    # Insert message into messages table
+    try:
+        cursor.execute(
+            "INSERT INTO messages (chat_room_id, sender_story_id, content) VALUES (?, ?, ?)",
+            (chat_room_id, sender_story_id, content)
+        )
+        conn.commit()
+        message_id = cursor.lastrowid
+        
+        # Retrieve the newly created message
+        cursor.execute(
+            "SELECT id, sender_story_id, content, created_at FROM messages WHERE id = ?",
+            (message_id,)
+        )
+        message = cursor.fetchone()
+        conn.close()
+        
+        return jsonify({
+            "id": message["id"],
+            "sender_story_id": message["sender_story_id"],
+            "content": message["content"],
+            "created_at": message["created_at"]
+        }), 201
+        
+    except Exception as e:
+        conn.close()
+        return jsonify({
+            "message": "訊息送出失敗，請稍後再試"
+        }), 500
 
 
 if __name__ == "__main__":

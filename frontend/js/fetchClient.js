@@ -5,6 +5,22 @@
  */
 
 /**
+ * 取得錯誤訊息
+ * @param {string} context - 錯誤情境（pat, send_message, load_chat, load_story）
+ * @param {number} status - HTTP 狀態碼
+ * @returns {string} 搞笑錯誤文案
+ */
+export function getErrorMessage(context, status) {
+  const messages = {
+    'pat': '拍拍失敗，請稍後再試',
+    'send_message': '訊息送出失敗，你的話語迷失在虛空中',
+    'load_chat': '聊天室載入失敗，連系統都放棄你了',
+    'load_story': '目前沒有慘事，快去投稿吧！',
+  }
+  return messages[context] || '操作失敗，請稍後再試'
+}
+
+/**
  * 內部統一請求函式
  * @param {string} url - 請求網址
  * @param {RequestInit} [options] - fetch 選項
@@ -57,6 +73,54 @@ export const fetchClient = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
+    })
+  },
+
+  /**
+   * 取得聊天室 ID（若不存在則建立）
+   * POST /api/chat-rooms
+   * @param {string} storyId - 慘事 ID
+   * @returns {Promise<{ ok: boolean, status: number, data: { chat_room_id: number, created_at: string } | null }>}
+   */
+  getChatRoomId(storyId) {
+    return request('/api/chat-rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story_id: storyId }),
+    })
+  },
+
+  /**
+   * 取得聊天室訊息
+   * GET /api/chat-rooms/<chat_room_id>/messages
+   * @param {string|number} chatRoomId - 聊天室 ID
+   * @param {string|null} since - ISO 8601 時間戳，只回傳此時間之後的訊息（可選）
+   * @returns {Promise<{ ok: boolean, status: number, data: { messages: Array } | null }>}
+   */
+  getMessages(chatRoomId, since = null) {
+    const url = new URL(`/api/chat-rooms/${chatRoomId}/messages`, window.location.origin)
+    if (since) {
+      url.searchParams.set('since', since)
+    }
+    return request(url.toString())
+  },
+
+  /**
+   * 發送訊息
+   * POST /api/chat-rooms/<chat_room_id>/messages
+   * @param {string|number} chatRoomId - 聊天室 ID
+   * @param {string|number} senderStoryId - 發送者的慘事 ID
+   * @param {string} content - 訊息內容
+   * @returns {Promise<{ ok: boolean, status: number, data: { id: number, sender_story_id: number, content: string, created_at: string } | null }>}
+   */
+  sendMessage(chatRoomId, senderStoryId, content) {
+    return request(`/api/chat-rooms/${chatRoomId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sender_story_id: senderStoryId,
+        content: content.trim(),
+      }),
     })
   },
 }
