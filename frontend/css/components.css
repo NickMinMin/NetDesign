@@ -348,6 +348,32 @@
 .pixel-btn:active:not(:disabled) {
   transform: translate(4px, 4px);
   box-shadow: none;
+  background: rgba(124, 58, 237, 0.3);
+}
+
+/* 觸控裝置 :active 回饋 */
+@media (hover: none) {
+  .pixel-btn:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: none;
+    background: rgba(255, 110, 180, 0.2);
+    border-color: var(--color-pink);
+  }
+
+  .pat-btn:active:not(:disabled) .pat-icon-img {
+    animation: pulse var(--anim-normal) ease forwards;
+  }
+
+  .story-card:active {
+    transform: rotate(0deg) translateY(-3px);
+    box-shadow: 0 12px 36px rgba(124, 58, 237, 0.25);
+  }
+
+  .nav-link:active {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translate(2px, 2px);
+  }
 }
 
 .pixel-btn:disabled {
@@ -462,4 +488,32 @@
 @media (max-width: 767px) {
   .hero-trash-img { width: 140px; }
   .hero-speech-bubble { right: -70px; font-size: 0.38rem; }
+}
+
+@media (max-width: 480px) {
+  .hero-speech-bubble {
+    right: -50px;
+    font-size: 0.35rem;
+    padding: 4px 8px;
+  }
+
+  .post-mascot-bubble {
+    right: -40px;
+    font-size: 0.35rem;
+    padding: 4px 6px;
+  }
+
+  .post-mascot-img {
+    width: 80px;
+  }
+
+  .avatar-wrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .avatar-wrapper--large {
+    width: 90px;
+    height: 90px;
+  }
 }

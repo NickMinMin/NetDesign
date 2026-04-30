@@ -28,8 +28,7 @@ export const renderer = {
   renderError(container, msg) {
     if (!container) return
     const el = document.createElement('p')
-    el.className = 'feedback feedback--error'
-    el.style.color = 'var(--color-error, #f87171)'
+    el.className = 'feedback-msg feedback-msg--error'
     el.textContent = msg
     container.innerHTML = ''
     container.appendChild(el)
@@ -43,8 +42,7 @@ export const renderer = {
   renderSuccess(container, msg) {
     if (!container) return
     const el = document.createElement('p')
-    el.className = 'feedback feedback--success'
-    el.style.color = 'var(--color-success, #4ade80)'
+    el.className = 'feedback-msg feedback-msg--success'
     el.textContent = msg
     container.innerHTML = ''
     container.appendChild(el)

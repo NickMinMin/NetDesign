@@ -63,19 +63,20 @@ describe('renderer 單元測試', () => {
       expect(container.textContent).toBe('新錯誤訊息')
     })
 
-    it('應包含 feedback--error 類別', () => {
+    it('應包含 feedback-msg--error 類別', () => {
       const container = document.getElementById('feedback-container')
       renderer.renderError(container, '錯誤訊息')
-      const errorElement = container.querySelector('.feedback--error')
+      const errorElement = container.querySelector('.feedback-msg--error')
       expect(errorElement).not.toBeNull()
       expect(errorElement.textContent).toBe('錯誤訊息')
     })
 
-    it('應設定錯誤訊息的顏色樣式', () => {
+    it('應使用 CSS class 而非 inline style', () => {
       const container = document.getElementById('feedback-container')
       renderer.renderError(container, '錯誤訊息')
-      const errorElement = container.querySelector('.feedback--error')
-      expect(errorElement.style.color).toBeTruthy()
+      const errorElement = container.querySelector('.feedback-msg--error')
+      expect(errorElement).not.toBeNull()
+      expect(errorElement.className).toContain('feedback-msg')
     })
 
     it('container 為 null 時不應拋出例外', () => {
