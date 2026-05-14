@@ -26,9 +26,18 @@ export function getErrorMessage(context, status) {
  * @param {RequestInit} [options] - fetch 選項
  * @returns {Promise<{ ok: boolean, status: number, data: any }>}
  */
+const API_BASE_URL = window.API_BASE_URL || 'https://8ad0-203-145-203-29.ngrok-free.app'
+
+function buildFullUrl(url) {
+  if (typeof url === 'string' && /^https?:\/\//.test(url)) {
+    return url
+  }
+  return `${API_BASE_URL}${url}`
+}
+
 async function request(url, options) {
   try {
-    const fullUrl = `http://localhost:5000${url}`
+    const fullUrl = buildFullUrl(url)
     const res = await fetch(fullUrl, options)
     const data = await res.json().catch(() => null)
     return { ok: res.ok, status: res.status, data }
@@ -99,7 +108,7 @@ export const fetchClient = {
    * @returns {Promise<{ ok: boolean, status: number, data: { messages: Array } | null }>}
    */
   getMessages(chatRoomId, since = null) {
-    const url = new URL(`/api/chat-rooms/${chatRoomId}/messages`, window.location.origin)
+    const url = new URL(`/api/chat-rooms/${chatRoomId}/messages`, API_BASE_URL)
     if (since) {
       url.searchParams.set('since', since)
     }
