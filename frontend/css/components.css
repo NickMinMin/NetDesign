@@ -417,6 +417,18 @@
   animation: pulse var(--anim-normal) ease forwards;
 }
 
+.pat-btn--disabled {
+  background: rgba(148, 163, 184, 0.15) !important;
+  border-color: #94a3b8 !important;
+  color: #94a3b8 !important;
+  box-shadow: 4px 4px 0 #94a3b8 !important;
+}
+
+.pat-btn--disabled:hover {
+  transform: none !important;
+  box-shadow: 4px 4px 0 #94a3b8 !important;
+}
+
 /* ===== 換一則按鈕 ===== */
 .next-btn {
   font-size: 0.5rem;

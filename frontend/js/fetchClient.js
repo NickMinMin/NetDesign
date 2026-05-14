@@ -28,7 +28,8 @@ export function getErrorMessage(context, status) {
  */
 async function request(url, options) {
   try {
-    const res = await fetch(url, options)
+    const fullUrl = `http://localhost:5000${url}`
+    const res = await fetch(fullUrl, options)
     const data = await res.json().catch(() => null)
     return { ok: res.ok, status: res.status, data }
   } catch (err) {

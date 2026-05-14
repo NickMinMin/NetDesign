@@ -18,6 +18,9 @@ export const renderer = {
     if (patCountEl) {
       patCountEl.textContent = story.pat_count
     }
+
+    // 更新拍拍按鈕狀態
+    this.updatePatButtonState(story.id)
   },
 
   /**
@@ -56,6 +59,29 @@ export const renderer = {
     const el = document.getElementById('pat-count')
     if (el) {
       el.textContent = count
+    }
+  },
+
+  /**
+   * 更新拍拍按鈕狀態
+   * @param {number} storyId - 故事ID
+   */
+  updatePatButtonState(storyId) {
+    const patBtn = document.getElementById('pat-btn')
+    if (!patBtn) return
+
+    // 檢查是否已經拍過這個故事
+    const pattedStories = new Set(JSON.parse(localStorage.getItem('pattedStories') || '[]'))
+    const isPatted = pattedStories.has(storyId)
+
+    if (isPatted) {
+      patBtn.disabled = true
+      patBtn.textContent = '已拍拍'
+      patBtn.classList.add('pat-btn--disabled')
+    } else {
+      patBtn.disabled = false
+      patBtn.textContent = '拍拍'
+      patBtn.classList.remove('pat-btn--disabled')
     }
   },
 

@@ -11,6 +11,7 @@ import { router } from './router.js'
 const feedState = {
   currentStory: null, // 目前顯示的慘事 { id, content, pat_count }
   isPatting: false,   // 拍拍請求進行中旗標
+  pattedStories: new Set(JSON.parse(localStorage.getItem('pattedStories') || '[]')), // 已拍拍的故事ID集合
 }
 
 /**
@@ -41,6 +42,12 @@ async function handlePat() {
   // 若無目前慘事或正在拍拍中，忽略
   if (!feedState.currentStory || feedState.isPatting) return
 
+  // 檢查是否已經拍過這個故事
+  if (feedState.pattedStories.has(feedState.currentStory.id)) {
+    renderer.renderError(document.getElementById('feed-feedback'), '你已經拍過這個慘事了，一件慘事只能按一次拍拍')
+    return
+  }
+
   const patBtn = document.getElementById('pat-btn')
   const feedbackEl = document.getElementById('feed-feedback')
 
@@ -55,6 +62,10 @@ async function handlePat() {
     const result = await fetchClient.patStory(feedState.currentStory.id)
 
     if (result.ok && result.data) {
+      // 拍拍成功：記錄已拍拍的故事
+      feedState.pattedStories.add(feedState.currentStory.id)
+      localStorage.setItem('pattedStories', JSON.stringify([...feedState.pattedStories]))
+
       // 拍拍成功：遞增顯示 pat_count（需求 2.2）
       renderer.updatePatCount(result.data.pat_count)
       // 同步更新內部狀態
