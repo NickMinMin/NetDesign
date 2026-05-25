@@ -28,7 +28,7 @@ export function getErrorMessage(context, status) {
  * 如果頁面有先設定 window.API_BASE_URL，會優先使用它
  */
 const API_BASE_URL =
-  window.API_BASE_URL || 'https://你的-render-網址.onrender.com'
+  window.API_BASE_URL || 'https://netdesign.onrender.com'
 
 /**
  * 組合完整 API 網址
