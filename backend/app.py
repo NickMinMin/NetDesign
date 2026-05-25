@@ -1,149 +1,339 @@
-/**
- * fetchClient.js
- * 封裝 Fetch API 呼叫的統一模組
- * 所有方法回傳 Promise<{ ok: boolean, status: number, data: any }>
- */
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import sqlite3
+import random
+import os
 
-/**
- * 取得錯誤訊息
- * @param {string} context - 錯誤情境（pat, send_message, load_chat, load_story）
- * @param {number} status - HTTP 狀態碼
- * @returns {string} 搞笑錯誤文案
- */
-export function getErrorMessage(context, status) {
-  const messages = {
-    pat: '拍拍失敗，請稍後再試',
-    send_message: '訊息送出失敗，你的話語迷失在虛空中',
-    load_chat: '聊天室載入失敗，連系統都放棄你了',
-    load_story: '目前沒有慘事，快去投稿吧！',
-  }
-  return messages[context] || '操作失敗，請稍後再試'
-}
+app = Flask(__name__)
+CORS(app)
 
-/**
- * API 基底網址
- * 部署到 Render 後，把下面這個網址改成你的 Render 網址
- * 例如：https://trashmatch.onrender.com
- *
- * 如果頁面有先設定 window.API_BASE_URL，會優先使用它
- */
-const API_BASE_URL =
-  window.API_BASE_URL || 'https://你的-render-網址.onrender.com'
+DB_NAME = "loser.db"
 
-/**
- * 組合完整 API 網址
- * @param {string} url
- * @returns {string}
- */
-function buildFullUrl(url) {
-  if (typeof url === 'string' && /^https?:\/\//.test(url)) {
-    return url
-  }
-  return `${API_BASE_URL}${url}`
-}
 
-/**
- * 內部統一請求函式
- * @param {string} url - 請求網址
- * @param {RequestInit} [options] - fetch 選項
- * @returns {Promise<{ ok: boolean, status: number, data: any }>}
- */
-async function request(url, options) {
-  try {
-    const fullUrl = buildFullUrl(url)
-    const res = await fetch(fullUrl, options)
-    const data = await res.json().catch(() => null)
-    return { ok: res.ok, status: res.status, data }
-  } catch (err) {
-    // 網路例外（無法連線、DNS 失敗等）
-    return { ok: false, status: 0, data: null, error: err.message }
-  }
-}
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-/**
- * fetchClient 公開介面
- */
-export const fetchClient = {
-  /**
-   * 取得隨機慘事
-   * GET /api/stories/random
-   * @returns {Promise<{ ok: boolean, status: number, data: { id: string|number, content: string, pat_count: number } | null }>}
-   */
-  getRandomStory() {
-    return request('/api/stories/random')
-  },
 
-  /**
-   * 對指定慘事拍拍
-   * PUT /api/stories/<id>/pat
-   * @param {string|number} storyId - 慘事 ID
-   * @returns {Promise<{ ok: boolean, status: number, data: { pat_count: number, match_unlocked: boolean, chat_room_id?: number } | null }>}
-   */
-  patStory(storyId) {
-    return request(`/api/stories/${storyId}/pat`, {
-      method: 'PUT',
-    })
-  },
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "TrashMatch API is running"})
 
-  /**
-   * 投稿新慘事
-   * POST /api/stories
-   * @param {string} content - 慘事內容
-   * @returns {Promise<{ ok: boolean, status: number, data: any }>}
-   */
-  postStory(content) {
-    return request('/api/stories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    })
-  },
 
-  /**
-   * 取得聊天室 ID（若不存在則建立）
-   * POST /api/chat-rooms
-   * @param {string|number} storyId - 慘事 ID
-   * @returns {Promise<{ ok: boolean, status: number, data: { chat_room_id: number, created_at: string } | null }>}
-   */
-  getChatRoomId(storyId) {
-    return request('/api/chat-rooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ story_id: storyId }),
-    })
-  },
+@app.route("/api/stories", methods=["POST"])
+def create_story():
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
 
-  /**
-   * 取得聊天室訊息
-   * GET /api/chat-rooms/<chat_room_id>/messages
-   * @param {string|number} chatRoomId - 聊天室 ID
-   * @param {string|null} since - ISO 8601 時間戳，只回傳此時間之後的訊息（可選）
-   * @returns {Promise<{ ok: boolean, status: number, data: { messages: Array } | null }>}
-   */
-  getMessages(chatRoomId, since = null) {
-    const url = new URL(`/api/chat-rooms/${chatRoomId}/messages`, API_BASE_URL)
-    if (since) {
-      url.searchParams.set('since', since)
+    if not content:
+        return jsonify({
+            "message": "送出失敗，你的慘事暫時無人接收"
+        }), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO stories (content) VALUES (?)",
+        (content,)
+    )
+    conn.commit()
+    story_id = cursor.lastrowid
+    conn.close()
+
+    return jsonify({
+        "id": story_id,
+        "content": content,
+        "pat_count": 0
+    }), 201
+
+
+@app.route("/api/stories/random", methods=["GET"])
+def get_random_story():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, content, pat_count FROM stories")
+    stories = cursor.fetchall()
+    conn.close()
+
+    if not stories:
+        return jsonify({
+            "message": "目前沒有慘事，快去投稿吧！"
+        }), 404
+
+    story = random.choice(stories)
+
+    return jsonify({
+        "id": story["id"],
+        "content": story["content"],
+        "pat_count": story["pat_count"]
+    }), 200
+
+
+@app.route("/api/stories/<int:story_id>/pat", methods=["PUT"])
+def pat_story(story_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, pat_count FROM stories WHERE id = ?",
+        (story_id,)
+    )
+    story = cursor.fetchone()
+
+    if not story:
+        conn.close()
+        return jsonify({
+            "message": "拍拍失敗，請稍後再試"
+        }), 404
+
+    cursor.execute(
+        "INSERT INTO pats (story_id) VALUES (?)",
+        (story_id,)
+    )
+    cursor.execute(
+        "UPDATE stories SET pat_count = pat_count + 1 WHERE id = ?",
+        (story_id,)
+    )
+    conn.commit()
+
+    cursor.execute(
+        "SELECT pat_count FROM stories WHERE id = ?",
+        (story_id,)
+    )
+    updated_story = cursor.fetchone()
+    pat_count = updated_story["pat_count"]
+
+    chat_room_id = None
+    match_unlocked = False
+
+    if pat_count >= 3:
+        match_unlocked = True
+
+        cursor.execute(
+            "SELECT id FROM chat_rooms WHERE story_id = ?",
+            (story_id,)
+        )
+        existing_chat_room = cursor.fetchone()
+
+        if existing_chat_room:
+            chat_room_id = existing_chat_room["id"]
+        else:
+            cursor.execute(
+                "INSERT INTO chat_rooms (story_id) VALUES (?)",
+                (story_id,)
+            )
+            conn.commit()
+            chat_room_id = cursor.lastrowid
+
+    conn.close()
+
+    response = {
+        "pat_count": pat_count,
+        "match_unlocked": match_unlocked
     }
-    return request(url.toString())
-  },
 
-  /**
-   * 發送訊息
-   * POST /api/chat-rooms/<chat_room_id>/messages
-   * @param {string|number} chatRoomId - 聊天室 ID
-   * @param {string|number} senderStoryId - 發送者的慘事 ID
-   * @param {string} content - 訊息內容
-   * @returns {Promise<{ ok: boolean, status: number, data: { id: number, sender_story_id: number, content: string, created_at: string } | null }>}
-   */
-  sendMessage(chatRoomId, senderStoryId, content) {
-    return request(`/api/chat-rooms/${chatRoomId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender_story_id: senderStoryId,
-        content: content.trim(),
-      }),
-    })
-  },
-}
+    if chat_room_id is not None:
+        response["chat_room_id"] = chat_room_id
+
+    return jsonify(response), 200
+
+
+@app.route("/api/chat-rooms", methods=["POST"])
+def create_chat_room():
+    data = request.get_json(silent=True) or {}
+    story_id = data.get("story_id")
+
+    if not story_id:
+        return jsonify({
+            "message": "story_id 參數為必填"
+        }), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, pat_count FROM stories WHERE id = ?",
+        (story_id,)
+    )
+    story = cursor.fetchone()
+
+    if not story:
+        conn.close()
+        return jsonify({
+            "message": "慘事不存在"
+        }), 404
+
+    if story["pat_count"] < 3:
+        conn.close()
+        return jsonify({
+            "message": "拍拍數不足，無法解鎖聊天室"
+        }), 400
+
+    cursor.execute(
+        "SELECT id, created_at FROM chat_rooms WHERE story_id = ?",
+        (story_id,)
+    )
+    existing_chat_room = cursor.fetchone()
+
+    if existing_chat_room:
+        conn.close()
+        return jsonify({
+            "chat_room_id": existing_chat_room["id"],
+            "created_at": existing_chat_room["created_at"]
+        }), 200
+
+    cursor.execute(
+        "INSERT INTO chat_rooms (story_id) VALUES (?)",
+        (story_id,)
+    )
+    conn.commit()
+    chat_room_id = cursor.lastrowid
+
+    cursor.execute(
+        "SELECT created_at FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+    conn.close()
+
+    return jsonify({
+        "chat_room_id": chat_room_id,
+        "created_at": chat_room["created_at"]
+    }), 201
+
+
+@app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["GET"])
+def get_messages(chat_room_id):
+    since = request.args.get("since")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+
+    if not chat_room:
+        conn.close()
+        return jsonify({
+            "message": "聊天室不存在"
+        }), 404
+
+    if since:
+        try:
+            cursor.execute(
+                "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? AND created_at > ? ORDER BY created_at ASC",
+                (chat_room_id, since)
+            )
+        except Exception:
+            conn.close()
+            return jsonify({
+                "message": "since 參數格式錯誤"
+            }), 400
+    else:
+        cursor.execute(
+            "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? ORDER BY created_at ASC",
+            (chat_room_id,)
+        )
+
+    messages = cursor.fetchall()
+    conn.close()
+
+    messages_list = [
+        {
+            "id": msg["id"],
+            "sender_story_id": msg["sender_story_id"],
+            "content": msg["content"],
+            "created_at": msg["created_at"]
+        }
+        for msg in messages
+    ]
+
+    return jsonify({
+        "messages": messages_list
+    }), 200
+
+
+@app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["POST"])
+def send_message(chat_room_id):
+    data = request.get_json(silent=True) or {}
+    sender_story_id = data.get("sender_story_id")
+    content = (data.get("content") or "").strip()
+
+    if not content:
+        return jsonify({
+            "message": "訊息不可為空白"
+        }), 400
+
+    if len(content) > 500:
+        return jsonify({
+            "message": "訊息長度超過限制（最多 500 字）"
+        }), 400
+
+    if not sender_story_id:
+        return jsonify({
+            "message": "sender_story_id 參數為必填"
+        }), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, story_id FROM chat_rooms WHERE id = ?",
+        (chat_room_id,)
+    )
+    chat_room = cursor.fetchone()
+
+    if not chat_room:
+        conn.close()
+        return jsonify({
+            "message": "聊天室不存在"
+        }), 404
+
+    cursor.execute(
+        "SELECT id FROM stories WHERE id = ?",
+        (sender_story_id,)
+    )
+    sender_story = cursor.fetchone()
+
+    if not sender_story:
+        conn.close()
+        return jsonify({
+            "message": "發送者慘事不存在"
+        }), 403
+
+    try:
+        cursor.execute(
+            "INSERT INTO messages (chat_room_id, sender_story_id, content) VALUES (?, ?, ?)",
+            (chat_room_id, sender_story_id, content)
+        )
+        conn.commit()
+        message_id = cursor.lastrowid
+
+        cursor.execute(
+            "SELECT id, sender_story_id, content, created_at FROM messages WHERE id = ?",
+            (message_id,)
+        )
+        message = cursor.fetchone()
+        conn.close()
+
+        return jsonify({
+            "id": message["id"],
+            "sender_story_id": message["sender_story_id"],
+            "content": message["content"],
+            "created_at": message["created_at"]
+        }), 201
+
+    except Exception:
+        conn.close()
+        return jsonify({
+            "message": "訊息送出失敗，請稍後再試"
+        }), 500
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
