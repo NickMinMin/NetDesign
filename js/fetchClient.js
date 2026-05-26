@@ -44,12 +44,13 @@ async function handleSubmit(event) {
   try {
     const result = await fetchClient.postStory(content)
 
-    if (result.status === 201) {
-      // 【安全機制注入】持久化儲存屬於我這台裝置的故事 ID 與專屬身分密鑰 Token
-      if (result.data && result.data.token) {
+    if (result.ok && result.status === 201) { 
+      if (result.data && result.data.id && result.data.token) { 
         localStorage.setItem(`story_token_${result.data.id}`, result.data.token)
-        localStorage.setItem('my_last_story_id', result.data.id) // 記錄自己最新的故事 ID
+        localStorage.setItem('my_last_story_id', result.data.id)
       }
+
+      // 送出成功...
 
       // 送出成功：清空表單並顯示成功訊息
       renderer.clearPostForm()
