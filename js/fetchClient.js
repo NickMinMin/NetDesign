@@ -3,76 +3,103 @@
  * 統一處理 API 請求的模組
  */
 
-const API_BASE_URL = window.API_BASE_URL || 'https://netdesign.onrender.com';
+const API_BASE_URL =
+  window.API_BASE_URL || 'https://netdesign.onrender.com';
 
-/**
- * 內部輔助函式：處理 fetch 請求
- */
 async function request(url, options = {}) {
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL.replace(/\/$/, '')}${url.startsWith('/') ? url : '/' + url}`;
-  
+  const fullUrl = url.startsWith('http')
+    ? url
+    : `${API_BASE_URL.replace(/\/$/, '')}${
+        url.startsWith('/') ? url : '/' + url
+      }`;
+
   try {
     const response = await fetch(fullUrl, options);
+
     let data = null;
+
     try {
       data = await response.json();
-    } catch (e) { /* 靜默處理無內容回應 */ }
-    
+    } catch (e) {}
+
     return {
       ok: response.ok,
       status: response.status,
-      data: data
+      data
     };
   } catch (error) {
     console.error(`API Error: ${fullUrl}`, error);
-    return { ok: false, status: 0, data: null };
+
+    return {
+      ok: false,
+      status: 0,
+      data: null
+    };
   }
 }
 
-/**
- * 匯出功能的定義
- */
 export const fetchClient = {
-  
   async getRandomStory() {
-    return await request('/api/stories/random');
+    return request('/api/stories/random');
   },
 
   async postStory(content) {
-    return await request('/api/stories', {
+    return request('/api/stories', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ content })
     });
   },
 
   async patStory(storyId) {
-    return await request(`/api/stories/${storyId}/pat`, { method: 'PUT' });
+    return request(`/api/stories/${storyId}/pat`, {
+      method: 'PUT'
+    });
   },
 
   async getChatRoomId(storyId) {
-    return await request('/api/chat-rooms', {
+    return request('/api/chat-rooms', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ story_id: storyId })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        story_id: storyId
+      })
     });
   },
 
   async getMessages(chatRoomId, since = null) {
     let url = `/api/chat-rooms/${chatRoomId}/messages`;
-    if (since) url += `?since=${encodeURIComponent(since)}`;
-    return await request(url);
+
+    if (since) {
+      url += `?since=${encodeURIComponent(since)}`;
+    }
+
+    return request(url);
   },
 
   async sendMessage(chatRoomId, senderStoryId, content) {
-    const token = localStorage.getItem(`story_token_${senderStoryId}`) || '';
-    return await request(`/api/chat-rooms/${chatRoomId}/messages`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      },
-      body: JSON.stringify({ sender_story_id: senderStoryId, content })
-    });
+    const token =
+      localStorage.getItem(
+        `story_token_${senderStoryId}`
+      ) || '';
+
+    return request(
+      `/api/chat-rooms/${chatRoomId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          sender_story_id: senderStoryId,
+          content
+        })
+      }
+    );
   }
 };
