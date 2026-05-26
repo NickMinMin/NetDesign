@@ -1,92 +1,78 @@
 /**
- * post.js — Post 頁邏輯模組
- * 負責投稿表單的事件綁定、輸入驗證與 API 呼叫
+ * fetchClient.js
+ * 統一處理 API 請求的模組
  */
 
-import { fetchClient } from './fetchClient.js'
-import { renderer } from './renderer.js'
+const API_BASE_URL = window.API_BASE_URL || 'https://netdesign.onrender.com';
 
-// 頁面內部狀態
-export const postState = {
-  isSubmitting: false, // 投稿請求進行中旗標
+/**
+ * 內部輔助函式：處理 fetch 請求
+ */
+async function request(url, options = {}) {
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL.replace(/\/$/, '')}${url.startsWith('/') ? url : '/' + url}`;
+  
+  try {
+    const response = await fetch(fullUrl, options);
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) { /* 靜默處理無內容回應 */ }
+    
+    return {
+      ok: response.ok,
+      status: response.status,
+      data: data
+    };
+  } catch (error) {
+    console.error(`API Error: ${fullUrl}`, error);
+    return { ok: false, status: 0, data: null };
+  }
 }
 
 /**
- * 處理投稿表單送出事件
- * 驗證輸入、呼叫 API、處理回應
- * @param {Event} event - 表單送出事件
+ * 匯出功能的定義
  */
-async function handleSubmit(event) {
-  event.preventDefault()
-
-  const inputEl = document.getElementById('post-input')
-  const submitBtn = document.getElementById('post-submit')
-  const feedbackEl = document.getElementById('post-feedback')
-
-  // 清空上一次的回饋訊息
-  if (feedbackEl) feedbackEl.innerHTML = ''
-
-  const content = inputEl ? inputEl.value : ''
-
-  // 空白驗證：trim 後為空則顯示提示並阻止送出
-  if (content.trim() === '') {
-    renderer.renderError(feedbackEl, '總得說點什麼吧？')
-    return
-  }
-
-  // 若正在送出中，忽略重複點擊
-  if (postState.isSubmitting) return
-
-  // 設定請求進行中狀態
-  postState.isSubmitting = true
-  if (submitBtn) submitBtn.disabled = true
-
-  try {
-    const result = await fetchClient.postStory(content)
-
-    if (result.ok && result.status === 201) { 
-      if (result.data && result.data.id && result.data.token) { 
-        localStorage.setItem(`story_token_${result.data.id}`, result.data.token)
-        localStorage.setItem('my_last_story_id', result.data.id)
-      }
-
-      // 送出成功...
-
-      // 送出成功：清空表單並顯示成功訊息
-      renderer.clearPostForm()
-      renderer.renderSuccess(feedbackEl, '你的慘事已送出，大家都懂你')
-
-      // 顯示成功頭像
-      const avatarEl = document.getElementById('post-success-avatar')
-      if (avatarEl) {
-        avatarEl.classList.remove('hidden')
-        avatarEl.removeAttribute('aria-hidden')
-      }
-    } else {
-      // 處理後端阻擋的錯誤（例如空白內容）
-      renderer.renderError(feedbackEl, '送出失敗，你的慘事暫時無人接收')
-    }
-  } catch (error) {
-    console.error('Submission error:', error)
-    renderer.renderError(feedbackEl, '系統邊緣化了你的請求，請稍後再試')
-  } finally {
-    // 確保按鈕狀態一定被恢復
-    postState.isSubmitting = false
-    if (submitBtn) submitBtn.disabled = false
-  }
-}
-
-// 公開介面
-export const post = {
-  /**
-   * 初始化 Post 頁：綁定表單送出事件
-   */
-  init() {
-    const formEl = document.getElementById('post-form')
-    if (formEl) {
-      // 移除舊的監聽器（若有），確保冪等性
-      formEl.removeEventListener('submit', handleSubmit)
-      formEl.addEventListener('submit', handleSubmit)
-    }
+export const fetchClient = {
+  
+  async getRandomStory() {
+    return await request('/api/stories/random');
   },
-}
+
+  async postStory(content) {
+    return await request('/api/stories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+  },
+
+  async patStory(storyId) {
+    return await request(`/api/stories/${storyId}/pat`, { method: 'PUT' });
+  },
+
+  async getChatRoomId(storyId) {
+    return await request('/api/chat-rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story_id: storyId })
+    });
+  },
+
+  async getMessages(chatRoomId, since = null) {
+    let url = `/api/chat-rooms/${chatRoomId}/messages`;
+    if (since) url += `?since=${encodeURIComponent(since)}`;
+    return await request(url);
+  },
+
+  async sendMessage(chatRoomId, senderStoryId, content) {
+    const token = localStorage.getItem(`story_token_${senderStoryId}`) || '';
+    return await request(`/api/chat-rooms/${chatRoomId}/messages`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify({ sender_story_id: senderStoryId, content })
+    });
+  }
+};
