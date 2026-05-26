@@ -11,6 +11,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
         pat_count INTEGER NOT NULL DEFAULT 0,
+        token TEXT NOT NULL, -- 👈 新增這個欄位：用來儲存發文者的專屬 UUID
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)

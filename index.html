@@ -15,8 +15,15 @@
   <link rel="stylesheet" href="css/pages.css" />
   <link rel="stylesheet" href="css/chat.css" />
   <script>
-    // 可在此處設定後端 API 的 ngrok 公開地址
-    window.API_BASE_URL = 'https://8ad0-203-145-203-29.ngrok-free.app'
+    window.API_BASE_URL = 'https://netdesign.onrender.com';
+    // 動態判斷 API 基底網址
+    // 支援本機開發 (localhost)、區域網路行動裝置測試 (192.168.x.x) 與線上 Ngrok 環境
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
+
+    window.API_BASE_URL = isLocal 
+      ? `http://${hostname}:5000` 
+     :'https://netdesign.onrender.com'; // 部署上線時可換成正式網域
   </script>
 </head>
 <body>

@@ -3,6 +3,7 @@ from flask_cors import CORS
 import sqlite3
 import random
 import os
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -31,11 +32,14 @@ def create_story():
             "message": "送出失敗，你的慘事暫時無人接收"
         }), 400
 
+    # 產生一組隨機的 UUID 作為發文者的專屬 Token 金鑰
+    story_token = uuid.uuid4().hex
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO stories (content) VALUES (?)",
-        (content,)
+        "INSERT INTO stories (content, token) VALUES (?, ?)",
+        (content, story_token)
     )
     conn.commit()
     story_id = cursor.lastrowid
@@ -44,7 +48,8 @@ def create_story():
     return jsonify({
         "id": story_id,
         "content": content,
-        "pat_count": 0
+        "pat_count": 0,
+        "token": story_token
     }), 201
 
 
@@ -259,6 +264,13 @@ def get_messages(chat_room_id):
 
 @app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["POST"])
 def send_message(chat_room_id):
+    # 從 HTTP 請求標頭 (Header) 提取 Authorization Bearer Token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "未授權的操作"}), 401
+    
+    provided_token = auth_header.split(' ')[1]
+
     data = request.get_json(silent=True) or {}
     sender_story_id = data.get("sender_story_id")
     content = (data.get("content") or "").strip()
@@ -293,16 +305,17 @@ def send_message(chat_room_id):
             "message": "聊天室不存在"
         }), 404
 
+    # 安全校驗核心：交叉比對 sender_story_id 欄位與對應產生的 token，確保發言權
     cursor.execute(
-        "SELECT id FROM stories WHERE id = ?",
-        (sender_story_id,)
+        "SELECT id FROM stories WHERE id = ? AND token = ?",
+        (sender_story_id, provided_token)
     )
     sender_story = cursor.fetchone()
 
     if not sender_story:
         conn.close()
         return jsonify({
-            "message": "發送者慘事不存在"
+            "message": "發送者身分驗證失敗，無法發送訊息"
         }), 403
 
     try:

@@ -28,7 +28,7 @@ async function handleSubmit(event) {
 
   const content = inputEl ? inputEl.value : ''
 
-  // 空白驗證：trim 後為空則顯示提示並阻止送出（需求 3.3）
+  // 空白驗證：trim 後為空則顯示提示並阻止送出
   if (content.trim() === '') {
     renderer.renderError(feedbackEl, '總得說點什麼吧？')
     return
@@ -37,7 +37,7 @@ async function handleSubmit(event) {
   // 若正在送出中，忽略重複點擊
   if (postState.isSubmitting) return
 
-  // 設定請求進行中狀態（需求 3.6）
+  // 設定請求進行中狀態
   postState.isSubmitting = true
   if (submitBtn) submitBtn.disabled = true
 
@@ -45,20 +45,29 @@ async function handleSubmit(event) {
     const result = await fetchClient.postStory(content)
 
     if (result.status === 201) {
-      // 送出成功：清空表單並顯示成功訊息（需求 3.4）
+      // 【安全機制注入】持久化儲存屬於我這台裝置的故事 ID 與專屬身分密鑰 Token
+      if (result.data && result.data.token) {
+        localStorage.setItem(`story_token_${result.data.id}`, result.data.token)
+        localStorage.setItem('my_last_story_id', result.data.id) // 記錄自己最新的故事 ID
+      }
+
+      // 送出成功：清空表單並顯示成功訊息
       renderer.clearPostForm()
       renderer.renderSuccess(feedbackEl, '你的慘事已送出，大家都懂你')
 
-      // 顯示成功頭像（需求 6.2）
+      // 顯示成功頭像
       const avatarEl = document.getElementById('post-success-avatar')
       if (avatarEl) {
         avatarEl.classList.remove('hidden')
         avatarEl.removeAttribute('aria-hidden')
       }
     } else {
-      // 非 201 回應：顯示錯誤訊息（需求 3.5）
+      // 處理後端阻擋的錯誤（例如空白內容）
       renderer.renderError(feedbackEl, '送出失敗，你的慘事暫時無人接收')
     }
+  } catch (error) {
+    console.error('Submission error:', error)
+    renderer.renderError(feedbackEl, '系統邊緣化了你的請求，請稍後再試')
   } finally {
     // 確保按鈕狀態一定被恢復
     postState.isSubmitting = false
@@ -74,10 +83,9 @@ export const post = {
   init() {
     const formEl = document.getElementById('post-form')
     if (formEl) {
+      // 移除舊的監聽器（若有），確保冪等性
+      formEl.removeEventListener('submit', handleSubmit)
       formEl.addEventListener('submit', handleSubmit)
     }
   },
 }
-
-// 匯出內部函式供測試使用
-export { handleSubmit }

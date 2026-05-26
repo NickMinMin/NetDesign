@@ -12,11 +12,10 @@ let _controller = null
 
 /**
  * 聊天室狀態管理物件
- * Requirement 2.1, 4.1
  */
 export const chatState = {
   chatRoomId: null,        // 當前聊天室 ID
-  storyId: null,           // 當前慘事 ID（用於發送訊息的 sender_story_id）
+  storyId: null,           // 當前發言者身分 ID（用於發送訊息的 sender_story_id）
   messages: [],            // 訊息列表
   lastFetchedAt: null,     // 最後一次取得訊息的時間戳
   pollingInterval: null,   // 輪詢計時器
@@ -27,7 +26,6 @@ export const chat = {
   /**
    * 初始化 Chat 面板：綁定關閉按鈕、發送按鈕與外部點擊事件
    * 若已初始化過，先清除舊的事件監聽器再重新綁定
-   * Requirement 2.1, 4.1
    */
   init() {
     // 清除上一次的事件監聽器
@@ -37,206 +35,79 @@ export const chat = {
     _controller = new AbortController()
     const signal = _controller.signal
 
-    const panel = document.getElementById('chat-panel')
     const closeBtn = document.getElementById('chat-close-btn')
-    const sendBtn = document.getElementById('chat-send-btn')
-    const chatInput = document.getElementById('chat-input')
-
-    if (!panel || !closeBtn) return
-
-    // 7.3：關閉按鈕點擊事件 — 呼叫 router.closeChat()
-    closeBtn.addEventListener('click', () => {
-      router.closeChat()
-    }, { signal })
-
-    // 發送按鈕點擊事件（如果存在）
-    if (sendBtn && chatInput) {
-      sendBtn.addEventListener('click', () => {
-        const content = chatInput.value
-        if (content.trim()) {
-          this.sendMessage(content)
-        }
-      }, { signal })
-
-      // Enter 鍵發送訊息
-      chatInput.addEventListener('keypress', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-          event.preventDefault()
-          const content = chatInput.value
-          if (content.trim()) {
-            this.sendMessage(content)
-          }
-        }
-      }, { signal })
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => router.closeChat(), { signal })
     }
 
-    // 7.2：點擊 Chat_Panel 外部區域關閉邏輯
-    // 條件：點擊目標不在 panel 內，且 panel 目前可見（不含 hidden class）
+    // 點擊面板外部可關閉聊天室
     document.addEventListener('click', (event) => {
-      if (!panel.classList.contains('hidden') && !panel.contains(event.target)) {
+      const panel = document.getElementById('chat-panel')
+      const isClickInside = panel && panel.contains(event.target)
+      const isClickNav = event.target.closest('.nav-link')
+      const isClickPat = event.target.closest('#pat-btn')
+      
+      // 只有當面板已開啟，且點擊處不在面板、導覽列、拍拍按鈕內時，才觸發關閉
+      if (panel && !panel.classList.contains('hidden') && !isClickInside && !isClickNav && !isClickPat) {
         router.closeChat()
       }
     }, { signal })
-  },
 
-  /**
-   * 驗證訊息內容
-   * Requirement 5.4
-   * @param {string} content - 訊息內容
-   * @returns {{valid: boolean, content?: string, error?: string}} 驗證結果
-   */
-  validateMessage(content) {
-    const trimmed = content.trim()
-    
-    if (!trimmed) {
-      return { valid: false, error: '訊息不可為空白' }
-    }
-    
-    if (trimmed.length > 500) {
-      return { valid: false, error: '訊息長度超過限制（最多 500 字）' }
-    }
-    
-    return { valid: true, content: trimmed }
-  },
+    // 綁定發送訊息按鈕與 Enter 鍵事件
+    const sendBtn = document.getElementById('chat-send-btn')
+    const chatInput = document.getElementById('chat-input')
 
-  /**
-   * 發送訊息
-   * Requirement 2.3, 2.4, 5.4
-   * @param {string} content - 訊息內容
-   */
-  async sendMessage(content) {
-    // 驗證訊息內容
-    const validation = this.validateMessage(content)
-    
-    if (!validation.valid) {
-      console.error(validation.error)
-      return
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        if (chatInput) this.sendMessage(chatInput.value)
+      }, { signal })
     }
-    
-    const trimmedContent = validation.content
-    
-    // 檢查是否有聊天室 ID 和慘事 ID
-    if (!chatState.chatRoomId || !chatState.storyId) {
-      console.error('聊天室未初始化')
-      return
-    }
-    
-    // 檢查是否正在發送中
-    if (chatState.isSending) {
-      return
-    }
-    
-    // 設定發送中旗標
-    chatState.isSending = true
-    
-    try {
-      // 呼叫 API 發送訊息
-      const result = await fetchClient.sendMessage(
-        chatState.chatRoomId,
-        chatState.storyId,
-        trimmedContent
-      )
-      
-      if (result.ok && result.data) {
-        // 發送成功，立即顯示訊息（不等待輪詢）
-        chatState.messages.push(result.data)
-        chatState.lastFetchedAt = result.data.created_at
-        
-        // 重新渲染訊息列表
-        this.renderMessages()
-        
-        // 清空輸入框
-        const chatInput = document.getElementById('chat-input')
-        if (chatInput) {
-          chatInput.value = ''
+
+    if (chatInput) {
+      chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          this.sendMessage(chatInput.value)
         }
-      } else {
-        // 發送失敗，顯示錯誤訊息
-        console.error('訊息送出失敗，你的話語迷失在虛空中')
-        // 可以在這裡顯示錯誤提示給使用者
-      }
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      // 重置發送中旗標
-      chatState.isSending = false
+      }, { signal })
     }
   },
 
   /**
-   * 開啟聊天室
-   * Requirement 2.1, 2.5, 3.1, 3.5
+   * 開啟並初始化聊天室數據
    * @param {string|number} chatRoomId - 聊天室 ID
-   * @param {string|number} storyId - 慘事 ID（用於發送訊息）
+   * @param {string|number} storyId - 觸發配對的慘事 ID
    */
   async open(chatRoomId, storyId = null) {
-    const panel = document.getElementById('chat-panel')
-    const messagesContainer = document.getElementById('chat-messages')
-    
-    if (!panel) {
-      console.error('Chat panel element not found')
-      return
-    }
-
-    // 更新聊天室狀態
     chatState.chatRoomId = chatRoomId
-    chatState.storyId = storyId
+    chatState.messages = []
+    chatState.lastFetchedAt = null
+    chatState.isSending = false
 
-    // 顯示聊天室面板（移除 hidden class）
-    panel.classList.remove('hidden')
-    panel.setAttribute('aria-hidden', 'false')
-
-    // 顯示載入指示器
-    if (messagesContainer) {
-      messagesContainer.innerHTML = '<div class="chat-loading">載入中… 🗑️</div>'
+    // 【核心雙向匿名身分對齊】
+    // 檢查本地是否有該故事的 Token。如果有，代表我是主辦人（發文者）；如果沒有，代表我是來取暖的拍拍者
+    const hasTokenForThisStory = localStorage.getItem(`story_token_${storyId}`) !== null
+    if (hasTokenForThisStory) {
+      chatState.storyId = storyId
+    } else {
+      // 如果我是拍拍解鎖別人故事的人，自動將我的發言身分切換成我自己的故事 ID
+      const myOwnLastStoryId = localStorage.getItem('my_last_story_id')
+      chatState.storyId = myOwnLastStoryId || storyId // 降級相容機制
     }
 
-    // 載入初始訊息
-    try {
-      const result = await fetchClient.getMessages(chatRoomId)
-      
-      if (result.ok && result.data) {
-        chatState.messages = result.data.messages || []
-        
-        // 更新 lastFetchedAt 為最新訊息的時間戳
-        if (chatState.messages.length > 0) {
-          chatState.lastFetchedAt = chatState.messages[chatState.messages.length - 1].created_at
-        } else {
-          // 若無訊息，使用當前時間
-          chatState.lastFetchedAt = new Date().toISOString()
-        }
+    // 清空輸入框與舊訊息
+    const chatInput = document.getElementById('chat-input')
+    if (chatInput) chatInput.value = ''
+    renderer.renderEmptyChatState()
 
-        // 渲染訊息（目前先簡單顯示）
-        this.renderMessages()
-      } else {
-        // 載入失敗，顯示錯誤訊息
-        if (messagesContainer) {
-          messagesContainer.innerHTML = '<div class="chat-error">聊天室載入失敗，連系統都放棄你了</div>'
-        }
-        console.error('Failed to load messages:', result.status)
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error)
-      if (messagesContainer) {
-        messagesContainer.innerHTML = '<div class="chat-error">聊天室載入失敗，連系統都放棄你了</div>'
-      }
-    }
+    // 立即載入歷史訊息
+    await this.pollMessages()
 
-    // 啟動輪詢機制（每 3 秒呼叫 pollMessages）
-    this.startPolling()
-  },
-
-  /**
-   * 啟動訊息輪詢
-   * Requirement 3.1, 3.2
-   */
-  startPolling() {
-    // 清除現有的輪詢計時器
+    // 清除舊的輪詢定時器，重新啟動 3 秒輪詢
     if (chatState.pollingInterval) {
       clearInterval(chatState.pollingInterval)
     }
 
-    // 每 3 秒輪詢一次
+    // 每 3 秒輪詢一次機制
     chatState.pollingInterval = setInterval(() => {
       this.pollMessages()
     }, 3000)
@@ -244,12 +115,9 @@ export const chat = {
 
   /**
    * 輪詢新訊息
-   * Requirement 3.1, 3.2, 3.3, 3.4
    */
   async pollMessages() {
-    if (!chatState.chatRoomId || !chatState.lastFetchedAt) {
-      return
-    }
+    if (!chatState.chatRoomId) return
 
     try {
       const result = await fetchClient.getMessages(
@@ -258,38 +126,106 @@ export const chat = {
       )
 
       if (result.ok && result.data && result.data.messages.length > 0) {
-        // 有新訊息，更新狀態並渲染
+        // 有新訊息，更新狀態並加入列表
         chatState.messages.push(...result.data.messages)
+        // 紀錄最後一則訊息的時間戳，供下次 query 增量使用
         chatState.lastFetchedAt = result.data.messages[result.data.messages.length - 1].created_at
         this.renderMessages()
       }
     } catch (error) {
-      // 靜默處理錯誤（記錄到 console，不中斷輪詢）
       console.error('Polling error:', error)
     }
   },
 
   /**
-   * 渲染訊息列表（使用 renderer 模組）
-   * Requirement 2.2, 2.5
+   * 渲染訊息列表
    */
   renderMessages() {
-    renderer.renderMessages(chatState.messages, chatState.storyId)
+    const container = document.getElementById('chat-messages')
+    if (!container) return
+
+    if (chatState.messages.length === 0) {
+      renderer.renderEmptyChatState()
+      return
+    }
+
+    // 將所有訊息轉換成像素風聊天氣泡 HTML
+    const messagesHtml = chatState.messages
+      .map((msg) => {
+        // 判斷這則訊息是不是目前這台瀏覽器發出的
+        const isMe = String(msg.sender_story_id) === String(chatState.storyId)
+        const msgClass = isMe ? 'chat-message--me' : 'chat-message--other'
+        const senderName = isMe ? '你 (匿名衰鬼)' : '對方衰鬼'
+        const escapedContent = renderer.escapeHtml(msg.content)
+        const formattedTime = renderer.formatTimestamp(msg.created_at)
+
+        return `
+          <div class="chat-message ${msgClass}">
+            <div class="chat-message__bubble">
+              <div class="chat-message__meta">${senderName} • ${formattedTime}</div>
+              <div class="chat-message__text">${escapedContent}</div>
+            </div>
+          </div>
+        `
+      })
+      .join('')
+
+    container.innerHTML = messagesHtml
+    renderer.scrollToLatestMessage()
   },
 
   /**
-   * 關閉聊天室
-   * Requirement 4.1, 4.2, 4.4
+   * 發送一則新訊息
+   * @param {string} content - 訊息文字
+   */
+  async sendMessage(content) {
+    const trimmed = content.strip ? content.strip() : content.trim()
+    if (!trimmed || chatState.isSending || !chatState.chatRoomId || !chatState.storyId) return
+
+    // 開啟鎖定狀態，防連點
+    chatState.isSending = true
+    const sendBtn = document.getElementById('chat-send-btn')
+    const chatInput = document.getElementById('chat-input')
+    if (sendBtn) sendBtn.disabled = true
+
+    try {
+      const result = await fetchClient.sendMessage(
+        chatState.chatRoomId,
+        chatState.storyId,
+        trimmed
+      )
+
+      if (result.ok && result.data) {
+        // 清空輸入框
+        if (chatInput) chatInput.value = ''
+        // 將自己發送的即時訊息推入狀態並重新渲染
+        chatState.messages.push(result.data)
+        chatState.lastFetchedAt = result.data.created_at
+        this.renderMessages()
+      } else {
+        alert(result.data?.message || '訊息發送失敗，你的尊嚴遭到系統攔截')
+      }
+    } catch (error) {
+      console.error('Send message error:', error)
+    } finally {
+      // 確保不論成功或失敗，一定解開按鈕鎖定
+      chatState.isSending = false
+      if (sendBtn) sendBtn.disabled = false
+      if (chatInput) chatInput.focus()
+    }
+  },
+
+  /**
+   * 關閉聊天室並徹底釋放定時器記憶體
    */
   close() {
-    // 停止輪詢（clearInterval）
     if (chatState.pollingInterval) {
       clearInterval(chatState.pollingInterval)
       chatState.pollingInterval = null
     }
-
-    // 保留 chatRoomId、storyId 與 messages（支援重新開啟）
-    // chatState.chatRoomId、chatState.storyId 和 chatState.messages 不清空
-    // 注意：面板的隱藏由 router.closeChat() 處理（包含動畫）
+    chatState.chatRoomId = null
+    chatState.storyId = null
+    chatState.messages = []
+    chatState.lastFetchedAt = null
   },
 }

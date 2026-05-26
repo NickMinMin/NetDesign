@@ -1,149 +1,91 @@
 /**
- * fetchClient.js
- * 封裝 Fetch API 呼叫的統一模組
- * 所有方法回傳 Promise<{ ok: boolean, status: number, data: any }>
+ * post.js — Post 頁邏輯模組
+ * 負責投稿表單的事件綁定、輸入驗證與 API 呼叫
  */
 
-/**
- * 取得錯誤訊息
- * @param {string} context - 錯誤情境（pat, send_message, load_chat, load_story）
- * @param {number} status - HTTP 狀態碼
- * @returns {string} 搞笑錯誤文案
- */
-export function getErrorMessage(context, status) {
-  const messages = {
-    pat: '拍拍失敗，請稍後再試',
-    send_message: '訊息送出失敗，你的話語迷失在虛空中',
-    load_chat: '聊天室載入失敗，連系統都放棄你了',
-    load_story: '目前沒有慘事，快去投稿吧！',
-  }
-  return messages[context] || '操作失敗，請稍後再試'
+import { fetchClient } from './fetchClient.js'
+import { renderer } from './renderer.js'
+
+// 頁面內部狀態
+export const postState = {
+  isSubmitting: false, // 投稿請求進行中旗標
 }
 
 /**
- * API 基底網址
- * 部署到 Render 後，把下面這個網址改成你的 Render 網址
- * 例如：https://trashmatch.onrender.com
- *
- * 如果頁面有先設定 window.API_BASE_URL，會優先使用它
+ * 處理投稿表單送出事件
+ * 驗證輸入、呼叫 API、處理回應
+ * @param {Event} event - 表單送出事件
  */
-const API_BASE_URL =
-  window.API_BASE_URL || 'https://netdesign.onrender.com'
+async function handleSubmit(event) {
+  event.preventDefault()
 
-/**
- * 組合完整 API 網址
- * @param {string} url
- * @returns {string}
- */
-function buildFullUrl(url) {
-  if (typeof url === 'string' && /^https?:\/\//.test(url)) {
-    return url
+  const inputEl = document.getElementById('post-input')
+  const submitBtn = document.getElementById('post-submit')
+  const feedbackEl = document.getElementById('post-feedback')
+
+  // 清空上一次的回饋訊息
+  if (feedbackEl) feedbackEl.innerHTML = ''
+
+  const content = inputEl ? inputEl.value : ''
+
+  // 空白驗證：trim 後為空則顯示提示並阻止送出
+  if (content.trim() === '') {
+    renderer.renderError(feedbackEl, '總得說點什麼吧？')
+    return
   }
-  return `${API_BASE_URL}${url}`
-}
 
-/**
- * 內部統一請求函式
- * @param {string} url - 請求網址
- * @param {RequestInit} [options] - fetch 選項
- * @returns {Promise<{ ok: boolean, status: number, data: any }>}
- */
-async function request(url, options) {
+  // 若正在送出中，忽略重複點擊
+  if (postState.isSubmitting) return
+
+  // 設定請求進行中狀態
+  postState.isSubmitting = true
+  if (submitBtn) submitBtn.disabled = true
+
   try {
-    const fullUrl = buildFullUrl(url)
-    const res = await fetch(fullUrl, options)
-    const data = await res.json().catch(() => null)
-    return { ok: res.ok, status: res.status, data }
-  } catch (err) {
-    // 網路例外（無法連線、DNS 失敗等）
-    return { ok: false, status: 0, data: null, error: err.message }
+    const result = await fetchClient.postStory(content)
+
+    if (result.status === 201) {
+      // 【安全機制注入】持久化儲存屬於我這台裝置的故事 ID 與專屬身分密鑰 Token
+      if (result.data && result.data.token) {
+        localStorage.setItem(`story_token_${result.data.id}`, result.data.token)
+        localStorage.setItem('my_last_story_id', result.data.id) // 記錄自己最新的故事 ID
+      }
+
+      // 送出成功：清空表單並顯示成功訊息
+      renderer.clearPostForm()
+      renderer.renderSuccess(feedbackEl, '你的慘事已送出，大家都懂你')
+
+      // 顯示成功頭像
+      const avatarEl = document.getElementById('post-success-avatar')
+      if (avatarEl) {
+        avatarEl.classList.remove('hidden')
+        avatarEl.removeAttribute('aria-hidden')
+      }
+    } else {
+      // 處理後端阻擋的錯誤（例如空白內容）
+      renderer.renderError(feedbackEl, '送出失敗，你的慘事暫時無人接收')
+    }
+  } catch (error) {
+    console.error('Submission error:', error)
+    renderer.renderError(feedbackEl, '系統邊緣化了你的請求，請稍後再試')
+  } finally {
+    // 確保按鈕狀態一定被恢復
+    postState.isSubmitting = false
+    if (submitBtn) submitBtn.disabled = false
   }
 }
 
-/**
- * fetchClient 公開介面
- */
-export const fetchClient = {
+// 公開介面
+export const post = {
   /**
-   * 取得隨機慘事
-   * GET /api/stories/random
-   * @returns {Promise<{ ok: boolean, status: number, data: { id: string|number, content: string, pat_count: number } | null }>}
+   * 初始化 Post 頁：綁定表單送出事件
    */
-  getRandomStory() {
-    return request('/api/stories/random')
-  },
-
-  /**
-   * 對指定慘事拍拍
-   * PUT /api/stories/<id>/pat
-   * @param {string|number} storyId - 慘事 ID
-   * @returns {Promise<{ ok: boolean, status: number, data: { pat_count: number, match_unlocked: boolean, chat_room_id?: number } | null }>}
-   */
-  patStory(storyId) {
-    return request(`/api/stories/${storyId}/pat`, {
-      method: 'PUT',
-    })
-  },
-
-  /**
-   * 投稿新慘事
-   * POST /api/stories
-   * @param {string} content - 慘事內容
-   * @returns {Promise<{ ok: boolean, status: number, data: any }>}
-   */
-  postStory(content) {
-    return request('/api/stories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    })
-  },
-
-  /**
-   * 取得聊天室 ID（若不存在則建立）
-   * POST /api/chat-rooms
-   * @param {string|number} storyId - 慘事 ID
-   * @returns {Promise<{ ok: boolean, status: number, data: { chat_room_id: number, created_at: string } | null }>}
-   */
-  getChatRoomId(storyId) {
-    return request('/api/chat-rooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ story_id: storyId }),
-    })
-  },
-
-  /**
-   * 取得聊天室訊息
-   * GET /api/chat-rooms/<chat_room_id>/messages
-   * @param {string|number} chatRoomId - 聊天室 ID
-   * @param {string|null} since - ISO 8601 時間戳，只回傳此時間之後的訊息（可選）
-   * @returns {Promise<{ ok: boolean, status: number, data: { messages: Array } | null }>}
-   */
-  getMessages(chatRoomId, since = null) {
-    const url = new URL(`/api/chat-rooms/${chatRoomId}/messages`, API_BASE_URL)
-    if (since) {
-      url.searchParams.set('since', since)
+  init() {
+    const formEl = document.getElementById('post-form')
+    if (formEl) {
+      // 移除舊的監聽器（若有），確保冪等性
+      formEl.removeEventListener('submit', handleSubmit)
+      formEl.addEventListener('submit', handleSubmit)
     }
-    return request(url.toString())
-  },
-
-  /**
-   * 發送訊息
-   * POST /api/chat-rooms/<chat_room_id>/messages
-   * @param {string|number} chatRoomId - 聊天室 ID
-   * @param {string|number} senderStoryId - 發送者的慘事 ID
-   * @param {string} content - 訊息內容
-   * @returns {Promise<{ ok: boolean, status: number, data: { id: number, sender_story_id: number, content: string, created_at: string } | null }>}
-   */
-  sendMessage(chatRoomId, senderStoryId, content) {
-    return request(`/api/chat-rooms/${chatRoomId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender_story_id: senderStoryId,
-        content: content.trim(),
-      }),
-    })
   },
 }
