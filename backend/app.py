@@ -10,6 +10,27 @@ CORS(app)
 
 DB_NAME = "loser.db"
 
+# --- [新增] 自動遷移資料庫函數 ---
+def migrate_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        # 檢查 stories 表是否有 token 欄位
+        cursor.execute("PRAGMA table_info(stories)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'token' not in columns:
+            print("Migration: Adding token column to stories table...")
+            cursor.execute("ALTER TABLE stories ADD COLUMN token TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+            print("Database migrated successfully.")
+    except Exception as e:
+        print(f"Migration error: {e}")
+    finally:
+        conn.close()
+
+# 在啟動前執行遷移
+migrate_db()
+# --------------------------------
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
