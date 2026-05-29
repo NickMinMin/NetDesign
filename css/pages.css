@@ -173,3 +173,183 @@ main {
 
   .feed-title { font-size: 0.65rem; }
 }
+
+/* ===== Login 頁 ===== */
+#login-page {
+  padding-top: var(--spacing-2xl);
+}
+
+.login-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.login-mascot-img {
+  width: 90px;
+  height: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 20px rgba(124, 58, 237, 0.6));
+  animation: bounce-in var(--anim-slow) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.login-title {
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  letter-spacing: 0.12em;
+  line-height: 2;
+  text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
+}
+
+.login-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Tab 切換 */
+.login-tabs {
+  display: flex;
+  gap: 0;
+  border: 3px solid var(--color-accent);
+  border-radius: 10px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 480px;
+}
+
+.login-tab {
+  flex: 1;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  transition: background var(--anim-fast), color var(--anim-fast);
+  letter-spacing: 0.05em;
+}
+
+.login-tab--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.login-tab:not(.login-tab--active):hover {
+  background: rgba(124, 58, 237, 0.2);
+  color: var(--color-text);
+}
+
+/* 表單容器 */
+.login-form-wrapper {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--glass-radius);
+  padding: var(--spacing-xl);
+}
+
+/* 表單元素 */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.form-label {
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.form-hint {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-green);
+  opacity: 0.8;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: border-color var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-pink);
+  box-shadow: 0 0 0 2px rgba(255, 110, 180, 0.2);
+}
+
+.login-submit-btn {
+  width: 100%;
+  margin-top: var(--spacing-sm);
+  font-size: 0.48rem;
+  padding: var(--spacing-md);
+}
+
+/* 導覽列 auth 區塊 */
+.nav-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.pixel-btn--sm {
+  font-size: 0.4rem;
+  padding: 4px 10px;
+  border-width: 2px;
+  box-shadow: 2px 2px 0 var(--color-accent);
+}
+
+.pixel-btn--sm:hover:not(:disabled) {
+  box-shadow: 1px 1px 0 var(--color-pink);
+}
+
+.pixel-btn--danger {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  box-shadow: 2px 2px 0 var(--color-error);
+}
+
+.pixel-btn--danger:hover:not(:disabled) {
+  border-color: var(--color-error);
+  box-shadow: 1px 1px 0 var(--color-error);
+  background: rgba(248, 113, 113, 0.15);
+}
+
+@media (max-width: 480px) {
+  .login-form-wrapper {
+    padding: var(--spacing-lg);
+  }
+
+  .nav-auth {
+    gap: 4px;
+  }
+
+  .pixel-btn--sm {
+    font-size: 0.35rem;
+    padding: 3px 7px;
+  }
+}

@@ -154,6 +154,101 @@
 
     </section>
 
+    <!-- ===== Login 頁 ===== -->
+    <section id="login-page" class="page hidden" aria-label="登入 / 註冊">
+
+      <header class="login-header">
+        <div class="login-mascot" aria-hidden="true">
+          <img src="images/trash.png" alt="" class="login-mascot-img" />
+        </div>
+        <h2 class="login-title">🗑️ 加入衰鬼行列</h2>
+        <p class="login-subtitle">登入或註冊，開始比慘</p>
+      </header>
+
+      <!-- Tab 切換 -->
+      <div class="login-tabs" role="tablist" aria-label="登入或註冊">
+        <button class="login-tab login-tab--active" role="tab" aria-selected="true" aria-controls="tab-login" id="tab-btn-login" type="button">
+          登入
+        </button>
+        <button class="login-tab" role="tab" aria-selected="false" aria-controls="tab-register" id="tab-btn-register" type="button">
+          註冊
+        </button>
+      </div>
+
+      <div class="login-form-wrapper">
+
+        <!-- 登入表單 -->
+        <div id="tab-login" role="tabpanel" aria-labelledby="tab-btn-login">
+          <form id="login-form" novalidate>
+            <div class="form-group">
+              <label for="login-nickname" class="form-label">暱稱</label>
+              <input
+                id="login-nickname"
+                type="text"
+                class="form-input"
+                placeholder="你的衰鬼暱稱"
+                autocomplete="username"
+                maxlength="20"
+                aria-required="true"
+              />
+            </div>
+            <div class="form-group">
+              <label for="login-password" class="form-label">密碼</label>
+              <input
+                id="login-password"
+                type="password"
+                class="form-input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                aria-required="true"
+              />
+            </div>
+            <div id="login-feedback" role="alert" aria-live="assertive"></div>
+            <button id="login-submit" class="pixel-btn pixel-btn--primary login-submit-btn" type="submit">
+              🗑️ 登入，繼續比慘
+            </button>
+          </form>
+        </div>
+
+        <!-- 註冊表單 -->
+        <div id="tab-register" role="tabpanel" aria-labelledby="tab-btn-register" class="hidden">
+          <form id="register-form" novalidate>
+            <div class="form-group">
+              <label for="register-nickname" class="form-label">真實暱稱</label>
+              <p class="form-hint">配對成功後才會揭露給對方 👀</p>
+              <input
+                id="register-nickname"
+                type="text"
+                class="form-input"
+                placeholder="你的真實暱稱（最多 20 字）"
+                autocomplete="username"
+                maxlength="20"
+                aria-required="true"
+                aria-describedby="register-nickname-hint"
+              />
+            </div>
+            <div class="form-group">
+              <label for="register-password" class="form-label">密碼</label>
+              <input
+                id="register-password"
+                type="password"
+                class="form-input"
+                placeholder="至少 4 個字元"
+                autocomplete="new-password"
+                aria-required="true"
+              />
+            </div>
+            <div id="register-feedback" role="alert" aria-live="assertive"></div>
+            <button id="register-submit" class="pixel-btn pixel-btn--primary login-submit-btn" type="submit">
+              🗑️ 我也沒救了，加入！
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
 
   <!-- ===== 聊天室面板 ===== -->
