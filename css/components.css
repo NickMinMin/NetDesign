@@ -35,6 +35,20 @@
   align-items: center;
 }
 
+/* ===== 匿名代號顯示 ===== */
+.nav-nickname {
+  font-family: var(--font-pixel);
+  font-size: 0.42rem;
+  color: var(--color-green);
+  letter-spacing: 0.04em;
+  background: rgba(181, 255, 77, 0.08);
+  border: 1px solid rgba(181, 255, 77, 0.2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
 .nav-link {
   font-family: var(--font-pixel);
   font-size: 0.5rem;

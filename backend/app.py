@@ -368,6 +368,81 @@ def send_message(chat_room_id):
         }), 500
 
 
+@app.route("/api/session", methods=["GET"])
+def get_session():
+    """
+    匿名代號系統：
+    - 前端帶著 session_token（存在 localStorage）來查詢
+    - 若沒有 token 或 token 不存在，自動產生新的搞笑代號
+    - 回傳 { session_token, nickname }
+    """
+    # 搞笑代號前綴清單
+    PREFIXES = [
+        "垃圾桶", "廢物", "魯蛇", "衰鬼", "倒楣鬼",
+        "沒救了", "躺平王", "失業中", "被貓嫌", "欠債中"
+    ]
+
+    session_token = request.args.get("token")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if session_token:
+        # 查詢現有 session
+        cursor.execute(
+            "SELECT token, nickname FROM sessions WHERE token = ?",
+            (session_token,)
+        )
+        session = cursor.fetchone()
+        if session:
+            conn.close()
+            return jsonify({
+                "session_token": session["token"],
+                "nickname": session["nickname"]
+            }), 200
+
+    # 產生新的 session
+    new_token = uuid.uuid4().hex
+    prefix = random.choice(PREFIXES)
+    number = random.randint(1000, 9999)
+    nickname = f"{prefix} #{number}"
+
+    cursor.execute(
+        "INSERT INTO sessions (token, nickname) VALUES (?, ?)",
+        (new_token, nickname)
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "session_token": new_token,
+        "nickname": nickname
+    }), 201
+
+
+@app.route("/api/stories/<int:story_id>/owner", methods=["GET"])
+def get_story_owner(story_id):
+    """
+    拍拍解鎖後查詢慘事作者的代號
+    回傳作者的匿名代號，讓聊天室顯示「你配對到了：垃圾桶 #XXXX」
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT s.nickname FROM stories st 
+           JOIN sessions s ON st.session_token = s.token 
+           WHERE st.id = ?""",
+        (story_id,)
+    )
+    result = cursor.fetchone()
+    conn.close()
+
+    if not result:
+        return jsonify({"nickname": "神秘衰鬼"}), 200
+
+    return jsonify({"nickname": result["nickname"]}), 200
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
