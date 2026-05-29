@@ -4,9 +4,55 @@ import sqlite3
 import random
 import os
 import uuid
+import bcrypt
+import jwt
+import datetime
 
 app = Flask(__name__)
 CORS(app)
+
+DB_NAME = "loser.db"
+
+# JWT 密鑰（正式環境應從環境變數讀取）
+JWT_SECRET = os.environ.get("JWT_SECRET", "trashmatch_secret_key_change_in_prod")
+JWT_EXPIRE_DAYS = 30
+
+# 搞笑代號前綴清單
+CODE_NAME_PREFIXES = [
+    "垃圾桶", "廢物", "魯蛇", "衰鬼", "倒楣鬼",
+    "沒救了", "躺平王", "失業中", "被貓嫌", "欠債中"
+]
+
+def generate_code_name():
+    """產生隨機搞笑代號，例如「垃圾桶 #4521」"""
+    prefix = random.choice(CODE_NAME_PREFIXES)
+    number = random.randint(1000, 9999)
+    return f"{prefix} #{number}"
+
+def generate_jwt(user_id, nickname, code_name):
+    """產生 JWT token"""
+    payload = {
+        "user_id": user_id,
+        "nickname": nickname,
+        "code_name": code_name,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=JWT_EXPIRE_DAYS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+def verify_jwt(token):
+    """驗證 JWT token，回傳 payload 或 None"""
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except Exception:
+        return None
+
+def get_current_user():
+    """從 Authorization header 取得目前登入的使用者資訊"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ")[1]
+    return verify_jwt(token)
 
 DB_NAME = "loser.db"
 
@@ -41,6 +87,127 @@ def get_db_connection():
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "TrashMatch API is running"})
+
+
+# ===== 帳號系統 API =====
+
+@app.route("/api/register", methods=["POST"])
+def register():
+    """
+    註冊新帳號
+    body: { nickname, password }
+    回傳: { token, nickname, code_name }
+    """
+    data = request.get_json(silent=True) or {}
+    nickname = (data.get("nickname") or "").strip()
+    password = (data.get("password") or "").strip()
+
+    # 驗證輸入
+    if not nickname:
+        return jsonify({"message": "暱稱不可為空白"}), 400
+    if len(nickname) > 20:
+        return jsonify({"message": "暱稱最多 20 個字"}), 400
+    if not password:
+        return jsonify({"message": "密碼不可為空白"}), 400
+    if len(password) < 4:
+        return jsonify({"message": "密碼至少 4 個字元"}), 400
+
+    # 加密密碼
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    # 產生搞笑代號
+    code_name = generate_code_name()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 檢查暱稱是否已存在
+    cursor.execute("SELECT id FROM users WHERE nickname = ?", (nickname,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({"message": "這個暱稱已被其他衰鬼搶走了，換一個吧"}), 409
+
+    # 確保代號唯一
+    while True:
+        cursor.execute("SELECT id FROM users WHERE code_name = ?", (code_name,))
+        if not cursor.fetchone():
+            break
+        code_name = generate_code_name()
+
+    # 建立使用者
+    cursor.execute(
+        "INSERT INTO users (nickname, code_name, password_hash) VALUES (?, ?, ?)",
+        (nickname, code_name, password_hash)
+    )
+    conn.commit()
+    user_id = cursor.lastrowid
+    conn.close()
+
+    token = generate_jwt(user_id, nickname, code_name)
+
+    return jsonify({
+        "token": token,
+        "nickname": nickname,
+        "code_name": code_name,
+        "message": f"歡迎加入，{code_name}！你的真實暱稱只有配對後才會揭露 👀"
+    }), 201
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    """
+    登入
+    body: { nickname, password }
+    回傳: { token, nickname, code_name }
+    """
+    data = request.get_json(silent=True) or {}
+    nickname = (data.get("nickname") or "").strip()
+    password = (data.get("password") or "").strip()
+
+    if not nickname or not password:
+        return jsonify({"message": "暱稱和密碼都要填"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, nickname, code_name, password_hash FROM users WHERE nickname = ?",
+        (nickname,)
+    )
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        return jsonify({"message": "找不到這個衰鬼，確認暱稱是否正確"}), 401
+
+    # 驗證密碼
+    if not bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+        return jsonify({"message": "密碼錯誤，你連自己的密碼都記不住嗎 😂"}), 401
+
+    token = generate_jwt(user["id"], user["nickname"], user["code_name"])
+
+    return jsonify({
+        "token": token,
+        "nickname": user["nickname"],
+        "code_name": user["code_name"],
+        "message": f"歡迎回來，{user['code_name']}！"
+    }), 200
+
+
+@app.route("/api/me", methods=["GET"])
+def get_me():
+    """
+    取得目前登入使用者的資訊（用 token 驗證）
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    return jsonify({
+        "user_id": user["user_id"],
+        "nickname": user["nickname"],
+        "code_name": user["code_name"]
+    }), 200
 
 
 @app.route("/api/stories", methods=["POST"])

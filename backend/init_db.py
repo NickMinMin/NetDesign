@@ -6,16 +6,20 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # 慘事資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS stories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
         pat_count INTEGER NOT NULL DEFAULT 0,
-        token TEXT NOT NULL, -- 👈 新增這個欄位：用來儲存發文者的專屬 UUID
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        token TEXT NOT NULL DEFAULT '',
+        user_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
     )
     """)
 
+    # 拍拍紀錄資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS pats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,6 +29,7 @@ def init_db():
     )
     """)
 
+    # 聊天室資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS chat_rooms (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +39,7 @@ def init_db():
     )
     """)
 
+    # 訊息資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,6 +52,21 @@ def init_db():
     )
     """)
 
+    # 使用者帳號資料表
+    # nickname: 真實暱稱（拍拍解鎖後才顯示）
+    # code_name: 隨機搞笑代號（垃圾桶 #XXXX，平時顯示）
+    # password_hash: bcrypt 加密後的密碼
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nickname TEXT NOT NULL UNIQUE,
+        code_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 匿名 session 資料表（未登入用戶）
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,23 +76,20 @@ def init_db():
     )
     """)
 
+    # 索引
     cursor.execute("""
-    CREATE INDEX IF NOT EXISTS idx_messages_chat_room_created 
+    CREATE INDEX IF NOT EXISTS idx_messages_chat_room_created
     ON messages(chat_room_id, created_at)
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        token TEXT NOT NULL UNIQUE,
-        nickname TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
     """)
 
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_sessions_token
     ON sessions(token)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_users_nickname
+    ON users(nickname)
     """)
 
     conn.commit()
