@@ -35,8 +35,12 @@
       <li><a href="#feed" class="nav-link active" data-page="feed" aria-current="page">🏠 首頁</a></li>
       <li><a href="#post" class="nav-link" data-page="post">📝 投稿</a></li>
     </ul>
-    <!-- 匿名代號顯示（由 session.js 動態填入）-->
-    <span id="nav-nickname" class="nav-nickname">👤 載入中…</span>
+    <!-- 登入狀態區：未登入顯示登入按鈕，登入後顯示代號 -->
+    <div class="nav-auth">
+      <span id="nav-nickname" class="nav-nickname hidden">👤 載入中…</span>
+      <a href="#login" id="nav-login-btn" class="pixel-btn pixel-btn--sm" data-page="login">登入 / 註冊</a>
+      <button id="nav-logout-btn" class="pixel-btn pixel-btn--sm pixel-btn--danger hidden" type="button">登出</button>
+    </div>
   </nav>
 
   <main>
