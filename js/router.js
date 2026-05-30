@@ -10,6 +10,8 @@ const PAGE_MAP = {
   '#feed': 'feed-page',
   '#post': 'post-page',
   '#login': 'login-page',
+  '#vote': 'vote-page',
+  '#leaderboard': 'leaderboard-page',
 }
 
 // 所有頁面 ID 清單

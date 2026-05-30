@@ -68,7 +68,36 @@ def migrate_db():
             print("Migration: Adding token column to stories table...")
             cursor.execute("ALTER TABLE stories ADD COLUMN token TEXT NOT NULL DEFAULT ''")
             conn.commit()
-            print("Database migrated successfully.")
+            print("Migration: token column added successfully.")
+
+        # 遷移 1：為 stories 表新增 vote_count 欄位（若已存在則跳過）
+        cursor.execute("PRAGMA table_info(stories)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'vote_count' not in columns:
+            print("Migration: Adding vote_count column to stories table...")
+            cursor.execute("ALTER TABLE stories ADD COLUMN vote_count INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
+            print("Migration: vote_count column added successfully.")
+
+        # 遷移 2：建立 votes 表（若已存在則跳過）
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS votes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL,
+            story_id   INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id)  REFERENCES users(id),
+            FOREIGN KEY (story_id) REFERENCES stories(id),
+            UNIQUE (user_id, story_id)
+        )
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_votes_story_id
+        ON votes(story_id)
+        """)
+        conn.commit()
+        print("Migration: votes table and idx_votes_story_id ensured.")
+
     except Exception as e:
         print(f"Migration error: {e}")
     finally:
@@ -260,6 +289,29 @@ def get_random_story():
         "id": story["id"],
         "content": story["content"],
         "pat_count": story["pat_count"]
+    }), 200
+
+
+@app.route("/api/stories/random-pair", methods=["GET"])
+def get_random_pair():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, content, vote_count FROM stories")
+    stories = cursor.fetchall()
+    conn.close()
+
+    if len(stories) < 2:
+        return jsonify({
+            "message": "慘事數量不足，快去投稿吧！"
+        }), 404
+
+    pair = random.sample(list(stories), 2)
+
+    return jsonify({
+        "stories": [
+            {"id": pair[0]["id"], "content": pair[0]["content"], "vote_count": pair[0]["vote_count"]},
+            {"id": pair[1]["id"], "content": pair[1]["content"], "vote_count": pair[1]["vote_count"]}
+        ]
     }), 200
 
 
@@ -608,6 +660,86 @@ def get_story_owner(story_id):
         return jsonify({"nickname": "神秘衰鬼"}), 200
 
     return jsonify({"nickname": result["nickname"]}), 200
+
+
+@app.route("/api/leaderboard", methods=["GET"])
+def get_leaderboard():
+    """
+    取得慘度排行榜（前 10 名）
+    回傳: { "stories": [{ id, content, vote_count }, ...] }
+    無資料時回傳空陣列
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, content, vote_count FROM stories ORDER BY vote_count DESC LIMIT 10"
+    )
+    stories = cursor.fetchall()
+    conn.close()
+
+    return jsonify({
+        "stories": [
+            {"id": s["id"], "content": s["content"], "vote_count": s["vote_count"]}
+            for s in stories
+        ]
+    }), 200
+
+
+@app.route("/api/stories/<int:story_id>/vote", methods=["POST"])
+def vote_story(story_id):
+    """
+    對指定慘事投票
+    需要 JWT Bearer token
+    query param: opponent_id（選填，用於回傳對手最新票數）
+    回傳: { vote_counts: { str(story_id): N, str(opponent_id): M } }
+    """
+    user = get_current_user()
+    if user is None:
+        return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 查詢 story 是否存在
+    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
+    story = cursor.fetchone()
+    if not story:
+        conn.close()
+        return jsonify({"message": "慘事不存在"}), 404
+
+    try:
+        cursor.execute(
+            "INSERT INTO votes (user_id, story_id) VALUES (?, ?)",
+            (user["user_id"], story_id)
+        )
+        cursor.execute(
+            "UPDATE stories SET vote_count = vote_count + 1 WHERE id = ?",
+            (story_id,)
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"message": "你已經對這則慘事投過票了"}), 409
+
+    # 取得本則慘事最新票數
+    cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (story_id,))
+    updated = cursor.fetchone()
+    vote_counts = {str(story_id): updated["vote_count"]}
+
+    # 若有傳入對手 id，一併回傳對手最新票數
+    opponent_id = request.args.get("opponent_id")
+    if opponent_id is not None:
+        try:
+            opponent_id_int = int(opponent_id)
+            cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (opponent_id_int,))
+            opponent = cursor.fetchone()
+            if opponent:
+                vote_counts[str(opponent_id_int)] = opponent["vote_count"]
+        except (ValueError, TypeError):
+            pass  # opponent_id 非整數時忽略
+
+    conn.close()
+    return jsonify({"vote_counts": vote_counts}), 200
 
 
 if __name__ == "__main__":

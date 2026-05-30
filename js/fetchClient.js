@@ -105,5 +105,26 @@ export const fetchClient = {
 
   async getStoryOwner(storyId) {
     return request(`/api/stories/${storyId}/owner`);
+  },
+
+  async getRandomPair() {
+    return request('/api/stories/random-pair');
+  },
+
+  async voteStory(storyId, opponentId) {
+    const token = localStorage.getItem('trashmatch_auth_token') || '';
+    return request(
+      `/api/stories/${storyId}/vote?opponent_id=${opponentId}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+  },
+
+  async getLeaderboard() {
+    return request('/api/leaderboard');
   }
 };

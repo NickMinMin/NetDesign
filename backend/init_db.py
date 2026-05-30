@@ -76,6 +76,19 @@ def init_db():
     )
     """)
 
+    # 投票紀錄資料表
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS votes (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL,
+        story_id   INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id)  REFERENCES users(id),
+        FOREIGN KEY (story_id) REFERENCES stories(id),
+        UNIQUE (user_id, story_id)
+    )
+    """)
+
     # 索引
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_messages_chat_room_created
@@ -90,6 +103,11 @@ def init_db():
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_users_nickname
     ON users(nickname)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_votes_story_id
+    ON votes(story_id)
     """)
 
     conn.commit()

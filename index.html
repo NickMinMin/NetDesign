@@ -34,6 +34,8 @@
     <ul class="nav-links" role="list">
       <li><a href="#feed" class="nav-link active" data-page="feed" aria-current="page">🏠 首頁</a></li>
       <li><a href="#post" class="nav-link" data-page="post">📝 投稿</a></li>
+      <li><a href="#vote" class="nav-link" data-page="vote">⚔️ 比慘</a></li>
+      <li><a href="#leaderboard" class="nav-link" data-page="leaderboard">🏆 排行榜</a></li>
     </ul>
     <!-- 登入狀態區：未登入顯示登入按鈕，登入後顯示代號 -->
     <div class="nav-auth">
@@ -247,6 +249,41 @@
 
       </div>
 
+    </section>
+
+    <!-- ===== Vote 頁 ===== -->
+    <section id="vote-page" class="page hidden" aria-label="投票對決">
+      <h2>⚔️ 誰比較慘？</h2>
+      <div class="vote-battle-wrapper">
+        <div class="vote-card">
+          <p id="vote-story-a"></p>
+          <button id="vote-btn-a" class="btn btn-primary">這個比較慘</button>
+        </div>
+        <div class="vote-card">
+          <p id="vote-story-b"></p>
+          <button id="vote-btn-b" class="btn btn-primary">這個比較慘</button>
+        </div>
+      </div>
+      <div id="vote-results" class="vote-results" hidden>
+        <div class="vote-bar-wrapper">
+          <div class="vote-bar" data-bar="a"></div>
+          <span data-pct="a">0%</span>
+        </div>
+        <div class="vote-bar-wrapper">
+          <div class="vote-bar" data-bar="b"></div>
+          <span data-pct="b">0%</span>
+        </div>
+      </div>
+      <button id="vote-next-btn" class="btn btn-secondary" hidden>換一組</button>
+      <p id="vote-feedback" class="feedback" aria-live="polite"></p>
+    </section>
+
+    <!-- ===== Leaderboard 頁 ===== -->
+    <section id="leaderboard-page" class="page hidden" aria-label="慘度排行榜">
+      <h2>🏆 慘度排行榜</h2>
+      <ol id="leaderboard-list" class="leaderboard-list"></ol>
+      <button id="leaderboard-refresh-btn" class="btn btn-secondary">重新整理</button>
+      <p id="leaderboard-feedback" class="feedback" aria-live="polite"></p>
     </section>
 
   </main>
