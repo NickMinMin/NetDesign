@@ -14,7 +14,8 @@ export const chatState = {
   otherNickname: '對方衰鬼', // 對方的匿名代號，解鎖後從 API 取得
   messages: [],
   lastFetchedAt: null,
-  pollingInterval: null,
+  pollingTimeoutId: null, // 改為儲存 setTimeout 的 ID
+  isPollingActive: false, // 標記輪詢是否應持續進行
   isSending: false,
 };
 
@@ -59,6 +60,9 @@ export const chat = {
   },
 
   async open(chatRoomId, storyId = null) {
+    // 先停止上一次可能殘留的輪詢
+    this.stopPolling();
+
     chatState.chatRoomId = chatRoomId;
     chatState.messages = [];
     chatState.lastFetchedAt = null;
@@ -80,17 +84,29 @@ export const chat = {
           chatState.otherNickname = ownerResult.data.nickname;
         }
       } catch (e) {
-        // 查詢失敗不影響聊天室功能，保留預設值
+        console.error('Failed to get story owner:', e);
       }
     }
 
+    // 啟用安全輪詢
+    chatState.isPollingActive = true;
+    await this.startPollingLoop();
+  },
+
+  /**
+   * 遞迴式安全輪詢機制：避免非同步請求重疊，防止崩潰
+   */
+  async startPollingLoop() {
+    if (!chatState.isPollingActive || !chatState.chatRoomId) return;
+
     await this.pollMessages();
 
-    if (chatState.pollingInterval) clearInterval(chatState.pollingInterval);
-
-    chatState.pollingInterval = setInterval(() => {
-      this.pollMessages();
-    }, 3000);
+    // 前一次請求徹底完成後，才倒數 3 秒發起下一次請求
+    if (chatState.isPollingActive) {
+      chatState.pollingTimeoutId = setTimeout(() => {
+        this.startPollingLoop();
+      }, 3000);
+    }
   },
 
   async pollMessages() {
@@ -99,7 +115,7 @@ export const chat = {
     try {
       const result = await fetchClient.getMessages(chatState.chatRoomId, chatState.lastFetchedAt);
 
-      if (result.ok && result.data && result.data.messages.length > 0) {
+      if (result.ok && result.data && result.data.messages && result.data.messages.length > 0) {
         chatState.messages.push(...result.data.messages);
         chatState.lastFetchedAt = result.data.messages[result.data.messages.length - 1].created_at;
         this.renderMessages();
@@ -120,7 +136,8 @@ export const chat = {
 
     container.innerHTML = chatState.messages
       .map((msg) => {
-        const isMe = String(msg.sender_story_id) === String(chatState.storyId);
+        // 使用 Number 進行安全的強型態比較，避免字串與數字對比失敗
+        const isMe = Number(msg.sender_story_id) === Number(chatState.storyId);
         const msgClass = isMe ? 'chat-message--me' : 'chat-message--other';
         const senderName = isMe ? '你 (匿名衰鬼)' : chatState.otherNickname;
         const escapedContent = renderer.escapeHtml(msg.content);
@@ -149,7 +166,20 @@ export const chat = {
     if (sendBtn) sendBtn.disabled = true;
 
     try {
-      const result = await fetchClient.sendMessage(chatState.chatRoomId, chatState.storyId, trimmed);
+      // 核心安全處理：動態撈取專屬這篇慘事的 UUID token，避免與註冊帳號的 JWT 混淆撞車
+      const specificStoryToken = localStorage.getItem(`story_token_${chatState.storyId}`);
+      
+      // 如果有找到對應發文的專屬 UUID Token，傳遞給 FetchClient 去覆蓋 Authorization
+      const options = specificStoryToken 
+        ? { headers: { 'Authorization': `Bearer ${specificStoryToken}` } } 
+        : {};
+
+      const result = await fetchClient.sendMessage(
+        chatState.chatRoomId, 
+        chatState.storyId, 
+        trimmed,
+        options
+      );
 
       if (result.ok && result.data) {
         if (chatInput) chatInput.value = '';
@@ -157,7 +187,7 @@ export const chat = {
         chatState.lastFetchedAt = result.data.created_at;
         this.renderMessages();
       } else {
-        alert(result.data?.message || '訊息發送失敗');
+        alert(result.data?.message || '訊息發送失敗，你可能不是這篇慘事的作者喔！');
       }
     } catch (error) {
       console.error('Send message error:', error);
@@ -168,11 +198,19 @@ export const chat = {
     }
   },
 
-  close() {
-    if (chatState.pollingInterval) {
-      clearInterval(chatState.pollingInterval);
-      chatState.pollingInterval = null;
+  /**
+   * 確實清除計時器，防止記憶體洩漏與背景偷跑
+   */
+  stopPolling() {
+    chatState.isPollingActive = false;
+    if (chatState.pollingTimeoutId) {
+      clearTimeout(chatState.pollingTimeoutId);
+      chatState.pollingTimeoutId = null;
     }
+  },
+
+  close() {
+    this.stopPolling();
     chatState.chatRoomId = null;
     chatState.storyId = null;
     chatState.otherNickname = '對方衰鬼';
