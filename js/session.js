@@ -31,9 +31,10 @@ export function getNickname() {
  */
 export async function initSession() {
   const existingToken = getSessionToken()
+  const base = (window.API_BASE_URL || '').replace(/\/$/, '')
   const url = existingToken
-    ? `/api/session?token=${existingToken}`
-    : '/api/session'
+    ? `${base}/api/session?token=${existingToken}`
+    : `${base}/api/session`
 
   try {
     const res = await fetch(url)
