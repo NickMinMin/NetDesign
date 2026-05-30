@@ -644,22 +644,20 @@ def get_story_owner(story_id):
     """
     拍拍解鎖後查詢慘事作者的代號
     回傳作者的匿名代號，讓聊天室顯示「你配對到了：垃圾桶 #XXXX」
+    stories 表沒有 session_token 欄位，直接回傳預設值即可
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        """SELECT s.nickname FROM stories st 
-           JOIN sessions s ON st.session_token = s.token 
-           WHERE st.id = ?""",
-        (story_id,)
-    )
-    result = cursor.fetchone()
+    # 確認 story 存在
+    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
+    story = cursor.fetchone()
     conn.close()
 
-    if not result:
-        return jsonify({"nickname": "神秘衰鬼"}), 200
+    if not story:
+        return jsonify({"message": "慘事不存在"}), 404
 
-    return jsonify({"nickname": result["nickname"]}), 200
+    # stories 表未關聯 sessions，回傳預設匿名代號
+    return jsonify({"nickname": "神秘衰鬼"}), 200
 
 
 @app.route("/api/leaderboard", methods=["GET"])
