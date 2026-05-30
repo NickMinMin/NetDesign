@@ -57,7 +57,7 @@ function showResults(pctA, pctB) {
   const btnA = getEl('vote-btn-a')
   const btnB = getEl('vote-btn-b')
 
-  // 設定進度條 CSS 變數
+  // 設定進度條 CSS 變數（進度條在 .vote-bar-track 內）
   const barA = resultsEl?.querySelector('[data-bar="a"]')
   const barB = resultsEl?.querySelector('[data-bar="b"]')
   if (barA) barA.style.setProperty('--pct', pctA + '%')
@@ -72,7 +72,7 @@ function showResults(pctA, pctB) {
   // 顯示結果區塊
   if (resultsEl) resultsEl.removeAttribute('hidden')
 
-  // 隱藏投票按鈕
+  // 隱藏投票按鈕（整個 .vote-card__actions）
   if (btnA) btnA.setAttribute('hidden', '')
   if (btnB) btnB.setAttribute('hidden', '')
 

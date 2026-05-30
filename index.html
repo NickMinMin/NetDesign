@@ -253,36 +253,80 @@
 
     <!-- ===== Vote 頁 ===== -->
     <section id="vote-page" class="page hidden" aria-label="投票對決">
-      <h2>⚔️ 誰比較慘？</h2>
+
+      <header class="vote-header">
+        <h2 class="vote-title">⚔️ 誰比較慘？</h2>
+        <p class="vote-subtitle">投票給你覺得更慘的那一則，登入後才能投票</p>
+      </header>
+
       <div class="vote-battle-wrapper">
+        <!-- 卡片 A -->
         <div class="vote-card">
-          <p id="vote-story-a"></p>
-          <button id="vote-btn-a" class="pixel-btn pixel-btn--primary">這個比較慘</button>
+          <p id="vote-story-a" class="vote-card__content" aria-label="慘事 A"></p>
+          <div class="vote-card__actions">
+            <button id="vote-btn-a" class="pixel-btn pixel-btn--primary" aria-label="投票給這則慘事">
+              💀 這個比較慘
+            </button>
+          </div>
         </div>
+
+        <!-- VS 分隔 -->
+        <span class="vote-vs" aria-hidden="true">VS</span>
+
+        <!-- 卡片 B -->
         <div class="vote-card">
-          <p id="vote-story-b"></p>
-          <button id="vote-btn-b" class="pixel-btn pixel-btn--primary">這個比較慘</button>
+          <p id="vote-story-b" class="vote-card__content" aria-label="慘事 B"></p>
+          <div class="vote-card__actions">
+            <button id="vote-btn-b" class="pixel-btn pixel-btn--primary" aria-label="投票給這則慘事">
+              💀 這個比較慘
+            </button>
+          </div>
         </div>
       </div>
-      <div id="vote-results" class="vote-results" hidden>
+
+      <!-- 投票結果進度條 -->
+      <div id="vote-results" class="vote-results" hidden aria-live="polite">
         <div class="vote-bar-wrapper">
-          <div class="vote-bar" data-bar="a"></div>
-          <span data-pct="a">0%</span>
+          <div class="vote-bar-label">
+            <span>慘事 A</span>
+            <span data-pct="a">0%</span>
+          </div>
+          <div class="vote-bar-track">
+            <div class="vote-bar" data-bar="a"></div>
+          </div>
         </div>
         <div class="vote-bar-wrapper">
-          <div class="vote-bar" data-bar="b"></div>
-          <span data-pct="b">0%</span>
+          <div class="vote-bar-label">
+            <span>慘事 B</span>
+            <span data-pct="b">0%</span>
+          </div>
+          <div class="vote-bar-track">
+            <div class="vote-bar vote-bar--b" data-bar="b"></div>
+          </div>
         </div>
       </div>
-      <button id="vote-next-btn" class="pixel-btn" hidden>換一組</button>
+
+      <button id="vote-next-btn" class="pixel-btn" hidden aria-label="換下一組對決">
+        🔀 換一組
+      </button>
+
       <p id="vote-feedback" class="feedback" aria-live="polite"></p>
     </section>
 
     <!-- ===== Leaderboard 頁 ===== -->
     <section id="leaderboard-page" class="page hidden" aria-label="慘度排行榜">
-      <h2>🏆 慘度排行榜</h2>
-      <ol id="leaderboard-list" class="leaderboard-list"></ol>
-      <button id="leaderboard-refresh-btn" class="pixel-btn">重新整理</button>
+
+      <header class="leaderboard-header">
+        <h2 class="leaderboard-title">🏆 慘度排行榜</h2>
+        <p class="leaderboard-subtitle">票數最高的前 10 則慘事，誰最慘一目了然</p>
+      </header>
+
+      <ol id="leaderboard-list" class="leaderboard-list" aria-label="排行榜列表"></ol>
+
+      <button id="leaderboard-refresh-btn" class="pixel-btn" aria-label="重新整理排行榜">
+        🔄 重新整理
+      </button>
+
       <p id="leaderboard-feedback" class="feedback" aria-live="polite"></p>
     </section>
 

@@ -39,6 +39,8 @@ function renderLeaderboard(stories) {
 
   stories.forEach((story, index) => {
     const rank = index + 1
+    // 排名 emoji 前三名特殊標示
+    const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
     // 內容摘要最多 100 字
     const summary = story.content.length > 100
       ? story.content.slice(0, 100) + '…'
@@ -47,9 +49,12 @@ function renderLeaderboard(stories) {
     const li = document.createElement('li')
     li.className = 'leaderboard-item'
     li.innerHTML = `
-      <span class="leaderboard-rank">${rank}</span>
+      <span class="leaderboard-rank">${rankEmoji}</span>
       <span class="leaderboard-content">${summary}</span>
-      <span class="leaderboard-votes">${story.vote_count} 票</span>
+      <span class="leaderboard-votes">
+        <span class="leaderboard-votes-count">${story.vote_count}</span>
+        票
+      </span>
     `
     listEl.appendChild(li)
   })
