@@ -11,6 +11,7 @@ let _controller = null;
 export const chatState = {
   chatRoomId: null,
   storyId: null,
+  otherNickname: '對方衰鬼', // 對方的匿名代號，解鎖後從 API 取得
   messages: [],
   lastFetchedAt: null,
   pollingInterval: null,
@@ -62,6 +63,7 @@ export const chat = {
     chatState.messages = [];
     chatState.lastFetchedAt = null;
     chatState.isSending = false;
+    chatState.otherNickname = '對方衰鬼';
 
     const hasTokenForThisStory = localStorage.getItem(`story_token_${storyId}`) !== null;
     chatState.storyId = hasTokenForThisStory ? storyId : (localStorage.getItem('my_last_story_id') || storyId);
@@ -69,6 +71,18 @@ export const chat = {
     const chatInput = document.getElementById('chat-input');
     if (chatInput) chatInput.value = '';
     renderer.renderEmptyChatState();
+
+    // 查詢對方（慘事作者）的匿名代號
+    if (storyId) {
+      try {
+        const ownerResult = await fetchClient.getStoryOwner(storyId);
+        if (ownerResult.ok && ownerResult.data && ownerResult.data.nickname) {
+          chatState.otherNickname = ownerResult.data.nickname;
+        }
+      } catch (e) {
+        // 查詢失敗不影響聊天室功能，保留預設值
+      }
+    }
 
     await this.pollMessages();
 
@@ -108,7 +122,7 @@ export const chat = {
       .map((msg) => {
         const isMe = String(msg.sender_story_id) === String(chatState.storyId);
         const msgClass = isMe ? 'chat-message--me' : 'chat-message--other';
-        const senderName = isMe ? '你 (匿名衰鬼)' : '對方衰鬼';
+        const senderName = isMe ? '你 (匿名衰鬼)' : chatState.otherNickname;
         const escapedContent = renderer.escapeHtml(msg.content);
         const formattedTime = renderer.formatTimestamp(msg.created_at);
 
@@ -161,6 +175,7 @@ export const chat = {
     }
     chatState.chatRoomId = null;
     chatState.storyId = null;
+    chatState.otherNickname = '對方衰鬼';
     chatState.messages = [];
     chatState.lastFetchedAt = null;
   },

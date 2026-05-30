@@ -101,5 +101,9 @@ export const fetchClient = {
         })
       }
     );
+  },
+
+  async getStoryOwner(storyId) {
+    return request(`/api/stories/${storyId}/owner`);
   }
 };
