@@ -5,6 +5,7 @@
 
 import { fetchClient } from './fetchClient.js'
 import { renderer } from './renderer.js'
+import { auth } from './auth.js'
 
 // 頁面內部狀態
 export const postState = {
@@ -18,6 +19,9 @@ export const postState = {
  */
 async function handleSubmit(event) {
   event.preventDefault()
+
+  // 未登入則跳轉到登入頁
+  if (!auth.requireLogin()) return
 
   const inputEl = document.getElementById('post-input')
   const submitBtn = document.getElementById('post-submit')
