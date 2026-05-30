@@ -6,6 +6,7 @@
 import { fetchClient } from './fetchClient.js'
 import { renderer } from './renderer.js'
 import { router } from './router.js'
+import { auth } from './auth.js'
 
 // 頁面內部狀態
 const feedState = {
@@ -41,6 +42,9 @@ async function loadStory() {
 async function handlePat() {
   // 若無目前慘事或正在拍拍中，忽略
   if (!feedState.currentStory || feedState.isPatting) return
+
+  // 未登入則跳轉到登入頁
+  if (!auth.requireLogin()) return
 
   // 檢查是否已經拍過這個故事
   if (feedState.pattedStories.has(feedState.currentStory.id)) {
