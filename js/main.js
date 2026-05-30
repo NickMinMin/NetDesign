@@ -8,9 +8,13 @@ import { feed } from './feed.js'
 import { post } from './post.js'
 import { chat } from './chat.js'
 import { initSession } from './session.js'
+import { auth } from './auth.js'
 
 // 初始化匿名代號系統（取得/建立代號並顯示在導覽列）
 initSession()
+
+// 初始化帳號系統（更新導覽列登入狀態、綁定登入/註冊/登出表單事件）
+auth.init()
 
 // 初始化路由（含初始頁面切換，根據 hash 決定顯示 Feed 頁或 Post 頁）
 router.init()
