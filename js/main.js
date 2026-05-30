@@ -9,6 +9,8 @@ import { post } from './post.js'
 import { chat } from './chat.js'
 import { initSession } from './session.js'
 import { auth } from './auth.js'
+import { vote } from './vote.js'
+import { leaderboard } from './leaderboard.js'
 
 // 初始化匿名代號系統（取得/建立代號並顯示在導覽列）
 initSession()
@@ -27,3 +29,9 @@ post.init()
 
 // 初始化 Chat 面板（綁定關閉按鈕與外部點擊事件）
 chat.init()
+
+// 初始化投票對決頁（監聽 hashchange，載入隨機對決組）
+vote.init()
+
+// 初始化慘度排行榜頁（監聽 hashchange，載入排行榜）
+leaderboard.init()
