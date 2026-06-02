@@ -15,8 +15,6 @@
   <link rel="stylesheet" href="css/pages.css" />
   <link rel="stylesheet" href="css/chat.css" />
   <script>
-    // 動態判斷 API 基底網址
-    // 支援本機開發 (localhost)、區域網路行動裝置測試 (192.168.x.x) 與線上 Render 環境
     const hostname = window.location.hostname;
     const isLocal =
       hostname === 'localhost' ||
@@ -34,14 +32,12 @@
   <nav id="nav-bar" role="navigation" aria-label="主要導覽">
     <span class="nav-brand">🗑️ TrashMatch</span>
     <ul class="nav-links" role="list">
-      <li><a href="#home" class="nav-link active" data-page="home" aria-current="page">🏠 主頁</a></li>
-      <li><a href="#feed" class="nav-link" data-page="feed">💀 看慘事</a></li>
+      <li><a href="#feed" class="nav-link active" data-page="feed" aria-current="page">🏠 首頁</a></li>
       <li><a href="#post" class="nav-link" data-page="post">📝 投稿</a></li>
       <li><a href="#vote" class="nav-link" data-page="vote">⚔️ 比慘</a></li>
       <li><a href="#leaderboard" class="nav-link" data-page="leaderboard">🏆 排行榜</a></li>
     </ul>
 
-    <!-- 登入狀態區：未登入顯示登入按鈕，登入後顯示代號 -->
     <div class="nav-auth">
       <span id="nav-nickname" class="nav-nickname hidden">👤 載入中…</span>
       <a href="#login" id="nav-login-btn" class="pixel-btn pixel-btn--sm" data-page="login">登入 / 註冊</a>
@@ -51,82 +47,34 @@
 
   <main>
 
-    <!-- ===== Home 主頁 ===== -->
-    <section id="home-page" class="page" aria-label="主頁">
-      <header class="home-hero">
-        <div class="home-hero__visual">
-          <img src="images/trash.png" alt="垃圾桶主視覺" class="home-hero__img" />
-          <div class="home-hero__badge">匿名比慘交友平台</div>
+    <!-- ===== Cover 封面頁 ===== -->
+    <section id="cover-page" class="page cover-page" aria-label="封面頁">
+      <div class="cover-page__overlay"></div>
+
+      <div class="cover-page__content">
+        <div class="cover-page__visual">
+          <img src="images/trash.png" alt="垃圾桶主視覺" class="cover-page__img" />
+          <div class="cover-page__bubble">今天也很爛嗎？</div>
         </div>
 
-        <div class="home-hero__content">
-          <p class="home-kicker">歡迎來到最沒救的社群角落</p>
-          <h1 class="home-title">🗑️ 衰鬼回收站 TrashMatch</h1>
-          <p class="home-slogan">大家都沒救了，不如就在一起吧。</p>
-          <p class="home-description">
-            在這裡，不需要修圖、不需要包裝，也不需要假裝自己過得很好。<br />
-            只要把你的慘事丟進來，也許下一個懂你的人，剛好也一樣沒救。
-          </p>
+        <p class="cover-page__kicker">匿名 × 比慘 × 低壓力社交</p>
+        <h1 class="cover-page__title">🗑️ 衰鬼回收站 TrashMatch</h1>
+        <p class="cover-page__slogan">大家都沒救了，不如就在一起吧。</p>
+        <p class="cover-page__desc">
+          不用修圖，不用包裝，也不用假裝自己很幸福。<br />
+          只要把你的慘事丟進來，也許下一個懂你的人，剛好也一樣沒救。
+        </p>
 
-          <div class="home-actions">
-            <a href="#feed" class="pixel-btn home-btn">💀 開始看慘事</a>
-            <a href="#post" class="pixel-btn pixel-btn--primary home-btn">📝 我要投稿</a>
-          </div>
-        </div>
-      </header>
-
-      <section class="home-features" aria-label="平台特色">
-        <article class="home-feature-card">
-          <h2 class="home-feature-card__title">匿名互動</h2>
-          <p class="home-feature-card__text">
-            不看臉、不比條件，先從彼此的荒謬人生開始認識。
-          </p>
-        </article>
-
-        <article class="home-feature-card">
-          <h2 class="home-feature-card__title">拍拍機制</h2>
-          <p class="home-feature-card__text">
-            如果你也覺得這則慘事太真實，就送他一個拍拍。
-          </p>
-        </article>
-
-        <article class="home-feature-card">
-          <h2 class="home-feature-card__title">配對解鎖</h2>
-          <p class="home-feature-card__text">
-            當同一則慘事累積足夠共鳴，就有機會打開聊天室。
-          </p>
-        </article>
-      </section>
-
-      <section class="home-flow" aria-label="使用流程">
-        <h2 class="home-section-title">使用流程</h2>
-        <div class="home-flow__steps">
-          <div class="home-step">
-            <span class="home-step__num">01</span>
-            <h3 class="home-step__title">投稿慘事</h3>
-            <p class="home-step__text">匿名寫下你的倒楣日常，越真實越有共鳴。</p>
-          </div>
-
-          <div class="home-step">
-            <span class="home-step__num">02</span>
-            <h3 class="home-step__title">收到拍拍</h3>
-            <p class="home-step__text">別人看到你的故事後，可以用拍拍表達「我懂」。</p>
-          </div>
-
-          <div class="home-step">
-            <span class="home-step__num">03</span>
-            <h3 class="home-step__title">開始聊天</h3>
-            <p class="home-step__text">當共鳴累積到一定程度，就可能解鎖聊天室。</p>
-          </div>
-        </div>
-      </section>
+        <a href="#feed" class="pixel-btn pixel-btn--primary cover-page__enter-btn">
+          🚪 進入回收站
+        </a>
+      </div>
     </section>
 
     <!-- ===== Feed 頁 ===== -->
     <section id="feed-page" class="page hidden" aria-label="首頁">
 
       <header class="feed-header">
-        <!-- 大垃圾桶主視覺 -->
         <div class="hero-trash-wrapper">
           <img src="images/trash.png" alt="" class="hero-trash-img" aria-hidden="true" />
           <div class="hero-speech-bubble" aria-hidden="true">
@@ -139,11 +87,9 @@
         <p class="slogan-sub">( 比慘交友平台 · 匿名 · 免費 · 沒有希望 )</p>
       </header>
 
-      <!-- 慘事卡片 -->
       <div class="feed-card-wrapper">
         <article id="story-card" class="story-card" aria-live="polite" aria-label="慘事卡片">
 
-          <!-- 卡片頭部 -->
           <div class="story-card__header">
             <div class="avatar-wrapper" aria-hidden="true">
               <img src="images/trash.png" alt="垃圾桶頭像" class="avatar-img" />
@@ -155,7 +101,6 @@
             </div>
           </div>
 
-          <!-- 慘事內容 -->
           <div id="story-content" class="story-card__content" aria-label="慘事內容">
             <div class="loading-spinner" aria-label="載入中">
               <span class="loading-spinner__dot"></span>
@@ -164,7 +109,6 @@
             </div>
           </div>
 
-          <!-- 卡片底部 -->
           <div class="story-card__footer">
             <div class="pat-count" aria-label="拍拍數">
               <img src="images/heart.png" alt="" class="pat-count-icon" aria-hidden="true" />
@@ -242,7 +186,6 @@
         <p class="login-subtitle">登入或註冊，開始比慘</p>
       </header>
 
-      <!-- Tab 切換 -->
       <div class="login-tabs" role="tablist" aria-label="登入或註冊">
         <button class="login-tab login-tab--active" role="tab" aria-selected="true" aria-controls="tab-login" id="tab-btn-login" type="button">
           登入
@@ -254,7 +197,6 @@
 
       <div class="login-form-wrapper">
 
-        <!-- 登入表單 -->
         <div id="tab-login" role="tabpanel" aria-labelledby="tab-btn-login">
           <form id="login-form" novalidate>
             <div class="form-group">
@@ -287,7 +229,6 @@
           </form>
         </div>
 
-        <!-- 註冊表單 -->
         <div id="tab-register" role="tabpanel" aria-labelledby="tab-btn-register" class="hidden">
           <form id="register-form" novalidate>
             <div class="form-group">
@@ -335,7 +276,6 @@
       </header>
 
       <div class="vote-battle-wrapper">
-        <!-- 卡片 A -->
         <div class="vote-card">
           <p id="vote-story-a" class="vote-card__content" aria-label="慘事 A"></p>
           <div class="vote-card__actions">
@@ -345,10 +285,8 @@
           </div>
         </div>
 
-        <!-- VS 分隔 -->
         <span class="vote-vs" aria-hidden="true">VS</span>
 
-        <!-- 卡片 B -->
         <div class="vote-card">
           <p id="vote-story-b" class="vote-card__content" aria-label="慘事 B"></p>
           <div class="vote-card__actions">
@@ -359,7 +297,6 @@
         </div>
       </div>
 
-      <!-- 投票結果進度條 -->
       <div id="vote-results" class="vote-results" hidden aria-live="polite">
         <div class="vote-bar-wrapper">
           <div class="vote-bar-label">
