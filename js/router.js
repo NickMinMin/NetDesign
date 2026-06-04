@@ -13,6 +13,7 @@ const PAGE_MAP = {
   '#login': 'login-page',
   '#vote': 'vote-page',
   '#leaderboard': 'leaderboard-page',
+  '#profile': 'profile-page',
 }
 
 // 所有頁面 ID 清單

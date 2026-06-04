@@ -36,6 +36,7 @@
       <li><a href="#post" class="nav-link" data-page="post">📝 投稿</a></li>
       <li><a href="#vote" class="nav-link" data-page="vote">⚔️ 比慘</a></li>
       <li><a href="#leaderboard" class="nav-link" data-page="leaderboard">🏆 排行榜</a></li>
+      <li><a href="#profile" class="nav-link" data-page="profile">👤 我的</a></li>
     </ul>
 
     <div class="nav-auth">
@@ -89,6 +90,16 @@
         <h1 class="feed-title">🗑️ 衰鬼回收站</h1>
         <p class="slogan">其實從不覺得過生活開心過。</p>
         <p class="slogan-sub">( 跟TwoTrash網友見面，他好像是認真的!!! )</p>
+
+        <!-- 分類篩選 -->
+        <div class="feed-categories" role="group" aria-label="分類篩選">
+          <button class="category-btn category-btn--active" data-category="" type="button">全部</button>
+          <button class="category-btn" data-category="愛情慘劇" type="button">💔 愛情</button>
+          <button class="category-btn" data-category="職場地獄" type="button">😩 職場</button>
+          <button class="category-btn" data-category="考試爆炸" type="button">📚 考試</button>
+          <button class="category-btn" data-category="家庭悲劇" type="button">🏠 家庭</button>
+          <button class="category-btn" data-category="其他衰事" type="button">🗑️ 其他</button>
+        </div>
       </header>
 
       <div class="feed-card-wrapper">
@@ -135,6 +146,27 @@
         <div id="feed-feedback" role="alert" aria-live="assertive"></div>
       </div>
 
+      <!-- 留言區 -->
+      <section class="comments-section" aria-label="留言區">
+        <h3 class="comments-title">
+          💬 大家的安慰
+          <span id="comments-count" class="comments-count">0</span>
+        </h3>
+        <div id="comments-list" class="comments-list" aria-live="polite"></div>
+        <div class="comments-form">
+          <input
+            id="comment-input"
+            type="text"
+            class="form-input comments-input"
+            placeholder="留個安慰或嘲笑… (最多 200 字)"
+            maxlength="200"
+            aria-label="留言輸入"
+          />
+          <button id="comment-submit" class="pixel-btn pixel-btn--sm" type="button">送出</button>
+        </div>
+        <p id="comment-feedback" class="feedback" aria-live="polite"></p>
+      </section>
+
     </section>
 
     <!-- ===== Post 頁 ===== -->
@@ -159,6 +191,18 @@
 
         <form id="post-form" novalidate>
           <label for="post-input" class="visually-hidden">演奏春日影</label>
+
+          <div class="form-group">
+            <label for="post-category" class="form-label">這是什麼慘？</label>
+            <select id="post-category" class="form-input form-select" aria-label="分類選擇">
+              <option value="其他衰事">🗑️ 其他衰事</option>
+              <option value="愛情慘劇">💔 愛情慘劇</option>
+              <option value="職場地獄">😩 職場地獄</option>
+              <option value="考試爆炸">📚 考試爆炸</option>
+              <option value="家庭悲劇">🏠 家庭悲劇</option>
+            </select>
+          </div>
+
           <textarea
             id="post-input"
             name="content"
@@ -346,6 +390,41 @@
       <p id="leaderboard-feedback" class="feedback" aria-live="polite"></p>
     </section>
 
+    <!-- ===== Profile 我的頁面 ===== -->
+    <section id="profile-page" class="page hidden" aria-label="我的頁面">
+
+      <header class="profile-header">
+        <h2 class="profile-title">👤 衰鬼檔案</h2>
+        <p class="profile-subtitle">你的衰事紀錄，一覽無遺</p>
+      </header>
+
+      <!-- 統計卡片 -->
+      <div class="profile-stats" aria-label="我的統計">
+        <div class="profile-stat-card">
+          <span class="profile-stat-value" id="profile-stat-stories">—</span>
+          <span class="profile-stat-label">則慘事</span>
+        </div>
+        <div class="profile-stat-card">
+          <span class="profile-stat-value" id="profile-stat-pats">—</span>
+          <span class="profile-stat-label">個拍拍</span>
+        </div>
+        <div class="profile-stat-card">
+          <span class="profile-stat-value" id="profile-stat-votes">—</span>
+          <span class="profile-stat-label">票</span>
+        </div>
+        <div class="profile-stat-card">
+          <span class="profile-stat-value" id="profile-stat-chats">—</span>
+          <span class="profile-stat-label">個聊天室</span>
+        </div>
+      </div>
+
+      <h3 class="profile-stories-title">📜 我的慘事</h3>
+      <ul id="profile-stories-list" class="profile-stories-list" aria-label="我的慘事列表"></ul>
+
+      <p id="profile-feedback" class="feedback" aria-live="polite"></p>
+
+    </section>
+
   </main>
 
   <!-- ===== 聊天室面板 ===== -->
@@ -366,7 +445,7 @@
     </div>
   </aside>
 
-  <script type="module" src="js/main.js?v=1.0.1"></script>
+  <script type="module" src="js/main.js?v=1.1.0"></script>
 
 </body>
 </html>

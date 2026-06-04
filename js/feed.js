@@ -7,12 +7,14 @@ import { fetchClient } from './fetchClient.js'
 import { renderer } from './renderer.js'
 import { router } from './router.js'
 import { auth } from './auth.js'
+import { comments } from './comments.js'
 
 // 頁面內部狀態
 const feedState = {
   currentStory: null, // 目前顯示的慘事 { id, content, pat_count }
   isPatting: false,   // 拍拍請求進行中旗標
-  pattedStories: new Set(), // 已拍拍的故事ID集合（記憶內，不再持久化）
+  pattedStories: new Set(), // 已拍拍的故事ID集合
+  activeCategory: '',       // 目前篩選的分類（空字串 = 全部）
 }
 
 /**
@@ -22,18 +24,22 @@ const feedState = {
  */
 async function loadStory(excludeId = null) {
   const feedbackEl = document.getElementById('feed-feedback')
-  // 清空上一次的錯誤訊息
   if (feedbackEl) feedbackEl.innerHTML = ''
 
-  const url = excludeId
-    ? `/api/stories/random?exclude_id=${excludeId}`
-    : '/api/stories/random'
+  // 組合 URL，支援 exclude_id 和 category 篩選
+  const params = new URLSearchParams()
+  if (excludeId) params.set('exclude_id', excludeId)
+  if (feedState.activeCategory) params.set('category', feedState.activeCategory)
+  const query = params.toString()
+  const url = `/api/stories/random${query ? '?' + query : ''}`
 
   const result = await fetchClient.getRandomStory(url)
 
   if (result.ok && result.data) {
     feedState.currentStory = result.data
     renderer.renderStoryCard(result.data)
+    // 載入這則慘事的留言
+    comments.loadForStory(result.data.id)
   } else {
     // 非 200 回應：顯示提示文字（需求 1.4）
     renderer.renderError(feedbackEl, '目前沒有慘事，快去投稿吧！')
@@ -133,6 +139,21 @@ export const feed = {
 
     // 載入第一則慘事（需求 1.1）
     loadStory()
+
+    // 初始化留言模組
+    comments.init()
+
+    // 綁定分類篩選按鈕
+    document.querySelectorAll('.category-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        feedState.activeCategory = btn.dataset.category || ''
+        // 更新 active 樣式
+        document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('category-btn--active'))
+        btn.classList.add('category-btn--active')
+        // 重新載入
+        loadStory()
+      })
+    })
 
     // 綁定「換一則」按鈕事件（需求 1.3）
     const nextBtn = document.getElementById('next-btn')

@@ -180,9 +180,51 @@ export const fetchClient = {
    * 獲取慘度排行榜 (前10名)
    */
   async getLeaderboard() {
-    // 精準對齊後端全小寫的 /api/leaderboard 端點，完美解決大寫 B 導致的 404 錯誤
     return request('/api/leaderboard', {
       method: 'GET'
     });
-  }
+  },
+
+  // ===== 新功能 API =====
+
+  /**
+   * 取得某則慘事的公開留言
+   */
+  async getComments(storyId) {
+    return request(`/api/stories/${storyId}/comments`);
+  },
+
+  /**
+   * 新增公開留言
+   */
+  async addComment(storyId, content, sessionToken = '') {
+    return request(`/api/stories/${storyId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, session_token: sessionToken }),
+    });
+  },
+
+  /**
+   * 取得我的統計數據（需登入）
+   */
+  async getMyStats() {
+    return request('/api/me/stats');
+  },
+
+  /**
+   * 取得我發過的所有慘事（需登入）
+   */
+  async getMyStories() {
+    return request('/api/me/stories');
+  },
+
+  /**
+   * 投稿新慘事（支援分類）
+   */
+  async postStoryWithCategory(content, category = '其他衰事') {
+    return request('/api/stories', {
+      method: 'POST',
+      body: JSON.stringify({ content, category }),
+    });
+  },
 };

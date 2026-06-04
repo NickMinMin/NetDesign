@@ -1,0 +1,127 @@
+/**
+ * comments.js — 公開留言模組
+ * 在 Feed 頁的慘事卡片下方顯示留言區
+ */
+
+import { fetchClient } from './fetchClient.js'
+import { auth } from './auth.js'
+
+let currentStoryId = null
+
+/**
+ * 載入並渲染指定慘事的留言
+ */
+async function loadComments(storyId) {
+  currentStoryId = storyId
+  const result = await fetchClient.getComments(storyId)
+
+  const listEl = document.getElementById('comments-list')
+  const countEl = document.getElementById('comments-count')
+  if (!listEl) return
+
+  if (!result.ok || !result.data) {
+    listEl.innerHTML = '<p class="comments-error">留言載入失敗</p>'
+    return
+  }
+
+  const comments = result.data.comments
+  if (countEl) countEl.textContent = comments.length
+
+  if (comments.length === 0) {
+    listEl.innerHTML = '<p class="comments-empty">還沒有人留言，你來第一個</p>'
+    return
+  }
+
+  listEl.innerHTML = comments.map((c) => `
+    <div class="comment-item">
+      <span class="comment-author">${escapeHtml(c.author_name)}</span>
+      <span class="comment-time">${formatRelativeTime(c.created_at)}</span>
+      <p class="comment-content">${escapeHtml(c.content)}</p>
+    </div>
+  `).join('')
+}
+
+/**
+ * 送出留言
+ */
+async function submitComment() {
+  if (!currentStoryId) return
+
+  const inputEl = document.getElementById('comment-input')
+  const feedbackEl = document.getElementById('comment-feedback')
+  const submitBtn = document.getElementById('comment-submit')
+
+  const content = (inputEl?.value || '').trim()
+  if (!content) {
+    if (feedbackEl) feedbackEl.textContent = '留言不可為空白'
+    return
+  }
+  if (content.length > 200) {
+    if (feedbackEl) feedbackEl.textContent = '留言最多 200 字'
+    return
+  }
+
+  if (feedbackEl) feedbackEl.textContent = ''
+  if (submitBtn) submitBtn.disabled = true
+
+  try {
+    const sessionToken = localStorage.getItem('trashmatch_session_token') || ''
+    const result = await fetchClient.addComment(currentStoryId, content, sessionToken)
+
+    if (result.ok) {
+      if (inputEl) inputEl.value = ''
+      // 重新載入留言列表
+      await loadComments(currentStoryId)
+    } else {
+      if (feedbackEl) feedbackEl.textContent = result.data?.message || '留言失敗，請稍後再試'
+    }
+  } catch {
+    if (feedbackEl) feedbackEl.textContent = '網路錯誤，請稍後再試'
+  } finally {
+    if (submitBtn) submitBtn.disabled = false
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return ''
+  const diff = Date.now() - new Date(ts).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '剛剛'
+  if (mins < 60) return `${mins} 分鐘前`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} 小時前`
+  return `${Math.floor(hrs / 24)} 天前`
+}
+
+export const comments = {
+  /**
+   * 切換到新的慘事時，更新留言區資料
+   */
+  loadForStory(storyId) {
+    if (!storyId) return
+    loadComments(storyId)
+  },
+
+  init() {
+    const submitBtn = document.getElementById('comment-submit')
+    if (submitBtn) {
+      submitBtn.addEventListener('click', submitComment)
+    }
+
+    const inputEl = document.getElementById('comment-input')
+    if (inputEl) {
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault()
+          submitComment()
+        }
+      })
+    }
+  },
+}

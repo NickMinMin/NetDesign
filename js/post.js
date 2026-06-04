@@ -38,6 +38,9 @@ async function handleSubmit(event) {
   // 未登入：先把內容存到 sessionStorage，跳轉登入後可自動填回
   if (!auth.requireLogin()) {
     sessionStorage.setItem('draft_post_content', content)
+    // 也存分類
+    const categoryEl = document.getElementById('post-category')
+    if (categoryEl) sessionStorage.setItem('draft_post_category', categoryEl.value)
     return
   }
 
@@ -49,7 +52,9 @@ async function handleSubmit(event) {
   if (submitBtn) submitBtn.disabled = true
 
   try {
-    const result = await fetchClient.postStory(content)
+    const categoryEl = document.getElementById('post-category')
+    const category = categoryEl ? categoryEl.value : '其他衰事'
+    const result = await fetchClient.postStoryWithCategory(content, category)
 
     if (result.status === 201) {
       // 【安全機制注入】持久化儲存屬於我這台裝置的故事 ID 與專屬身分密鑰 Token
@@ -95,8 +100,14 @@ function restoreDraft() {
   const inputEl = document.getElementById('post-input')
   if (inputEl && !inputEl.value) {
     inputEl.value = draft
-    // 填回後清除草稿，避免反覆填入
     sessionStorage.removeItem('draft_post_content')
+  }
+
+  const draftCategory = sessionStorage.getItem('draft_post_category')
+  if (draftCategory) {
+    const categoryEl = document.getElementById('post-category')
+    if (categoryEl) categoryEl.value = draftCategory
+    sessionStorage.removeItem('draft_post_category')
   }
 }
 

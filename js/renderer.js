@@ -6,17 +6,31 @@
 export const renderer = {
   /**
    * 將慘事物件渲染至 Story_Card
-   * @param {Object} story - 慘事物件 { id, content, pat_count }
+   * @param {Object} story - 慘事物件 { id, content, pat_count, category }
    */
   renderStoryCard(story) {
     const contentEl = document.getElementById('story-content')
     const patCountEl = document.getElementById('pat-count')
+    const tagEl = document.querySelector('.story-card__tag')
 
     if (contentEl) {
       contentEl.textContent = story.content
     }
     if (patCountEl) {
       patCountEl.textContent = story.pat_count
+    }
+
+    // 顯示分類標籤
+    if (tagEl && story.category) {
+      const CATEGORY_EMOJI = {
+        '愛情慘劇': '💔',
+        '職場地獄': '😩',
+        '考試爆炸': '📚',
+        '家庭悲劇': '🏠',
+        '其他衰事': '🗑️',
+      }
+      const emoji = CATEGORY_EMOJI[story.category] || '🗑️'
+      tagEl.textContent = `${emoji} ${story.category}`
     }
 
     // 更新拍拍按鈕狀態

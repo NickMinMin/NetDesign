@@ -12,8 +12,10 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
         pat_count INTEGER NOT NULL DEFAULT 0,
+        vote_count INTEGER NOT NULL DEFAULT 0,
         token TEXT NOT NULL DEFAULT '',
         user_id INTEGER,
+        category TEXT NOT NULL DEFAULT '其他衰事',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -94,6 +96,20 @@ def init_db():
     )
     """)
 
+    # 公開留言資料表
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS comments (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        story_id   INTEGER NOT NULL,
+        user_id    INTEGER,
+        session_token TEXT,
+        content    TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (story_id) REFERENCES stories(id),
+        FOREIGN KEY (user_id)  REFERENCES users(id)
+    )
+    """)
+
     # 索引
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_messages_chat_room_created
@@ -113,6 +129,11 @@ def init_db():
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_votes_story_id
     ON votes(story_id)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_comments_story_id
+    ON comments(story_id)
     """)
 
     conn.commit()

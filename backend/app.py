@@ -128,6 +128,35 @@ def migrate_db():
             conn.commit()
             print("Migration: pats table updated.")
 
+        # 遷移 4：為 stories 表新增 category 欄位
+        cursor.execute("PRAGMA table_info(stories)")
+        story_columns = [column[1] for column in cursor.fetchall()]
+        if 'category' not in story_columns:
+            print("Migration: Adding category column to stories table...")
+            cursor.execute("ALTER TABLE stories ADD COLUMN category TEXT NOT NULL DEFAULT '其他衰事'")
+            conn.commit()
+            print("Migration: category column added.")
+
+        # 遷移 5：建立 comments 表（公開留言）
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS comments (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            story_id   INTEGER NOT NULL,
+            user_id    INTEGER,
+            session_token TEXT,
+            content    TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (story_id) REFERENCES stories(id),
+            FOREIGN KEY (user_id)  REFERENCES users(id)
+        )
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_comments_story_id
+        ON comments(story_id)
+        """)
+        conn.commit()
+        print("Migration: comments table ensured.")
+
     except Exception as e:
         print(f"Migration error: {e}")
     finally:
@@ -273,11 +302,19 @@ def get_me():
 def create_story():
     data = request.get_json(silent=True) or {}
     content = (data.get("content") or "").strip()
+    category = (data.get("category") or "其他衰事").strip()
+
+    VALID_CATEGORIES = ["愛情慘劇", "職場地獄", "考試爆炸", "家庭悲劇", "其他衰事"]
+    if category not in VALID_CATEGORIES:
+        category = "其他衰事"
 
     if not content:
         return jsonify({
             "message": "送出失敗，你的慘事暫時無人接收"
         }), 400
+
+    if len(content) > 500:
+        return jsonify({"message": "慘事最多 500 個字"}), 400
 
     # 產生一組隨機的 UUID 作為發文者的專屬 Token 金鑰
     story_token = uuid.uuid4().hex
@@ -287,8 +324,8 @@ def create_story():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO stories (content, token, user_id) VALUES (?, ?, ?)",
-        (content, story_token, user_id)
+        "INSERT INTO stories (content, token, user_id, category) VALUES (?, ?, ?, ?)",
+        (content, story_token, user_id, category)
     )
     conn.commit()
     story_id = cursor.lastrowid
@@ -298,6 +335,7 @@ def create_story():
         "id": story_id,
         "content": content,
         "pat_count": 0,
+        "category": category,
         "token": story_token
     }), 201
 
@@ -307,21 +345,33 @@ def get_random_story():
     """
     取得一則隨機慘事
     query param: exclude_id（選填，排除指定 id，避免連續抽到同一則）
+    query param: category（選填，篩選特定分類）
     """
     exclude_id = request.args.get("exclude_id")
+    category = request.args.get("category", "").strip()
+
+    VALID_CATEGORIES = ["愛情慘劇", "職場地獄", "考試爆炸", "家庭悲劇", "其他衰事"]
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # 動態組合 WHERE 條件
+    conditions = []
+    params = []
+
     if exclude_id is not None:
         try:
-            exclude_id_int = int(exclude_id)
-            cursor.execute("SELECT id, content, pat_count FROM stories WHERE id != ?", (exclude_id_int,))
+            conditions.append("id != ?")
+            params.append(int(exclude_id))
         except (ValueError, TypeError):
-            cursor.execute("SELECT id, content, pat_count FROM stories")
-    else:
-        cursor.execute("SELECT id, content, pat_count FROM stories")
+            pass
 
+    if category and category in VALID_CATEGORIES:
+        conditions.append("category = ?")
+        params.append(category)
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    cursor.execute(f"SELECT id, content, pat_count, category FROM stories {where_clause}", params)
     stories = cursor.fetchall()
     conn.close()
 
@@ -335,7 +385,8 @@ def get_random_story():
     return jsonify({
         "id": story["id"],
         "content": story["content"],
-        "pat_count": story["pat_count"]
+        "pat_count": story["pat_count"],
+        "category": story["category"]
     }), 200
 
 
@@ -881,3 +932,183 @@ def vote_story(story_id):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
+
+# ===== 新功能 API =====
+
+# ---- 留言系統 ----
+
+@app.route("/api/stories/<int:story_id>/comments", methods=["GET"])
+def get_comments(story_id):
+    """
+    取得某則慘事的公開留言（最多 50 筆，最新在後）
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"message": "慘事不存在"}), 404
+
+    cursor.execute("""
+        SELECT c.id, c.content, c.created_at,
+               COALESCE(u.code_name, '匿名衰鬼') AS author_name
+        FROM comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.story_id = ?
+        ORDER BY c.created_at ASC
+        LIMIT 50
+    """, (story_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify({
+        "comments": [
+            {
+                "id": r["id"],
+                "content": r["content"],
+                "author_name": r["author_name"],
+                "created_at": r["created_at"]
+            }
+            for r in rows
+        ]
+    }), 200
+
+
+@app.route("/api/stories/<int:story_id>/comments", methods=["POST"])
+def add_comment(story_id):
+    """
+    對某則慘事新增公開留言
+    已登入用 JWT（user_id 寫入），未登入用 session_token
+    body: { content, session_token? }
+    """
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+
+    if not content:
+        return jsonify({"message": "留言不可為空白"}), 400
+    if len(content) > 200:
+        return jsonify({"message": "留言最多 200 字"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"message": "慘事不存在"}), 404
+
+    user = get_current_user()
+    if user:
+        cursor.execute(
+            "INSERT INTO comments (story_id, user_id, content) VALUES (?, ?, ?)",
+            (story_id, user["user_id"], content)
+        )
+        author_name = user.get("code_name", "匿名衰鬼")
+    else:
+        session_token = (data.get("session_token") or "").strip()
+        cursor.execute(
+            "INSERT INTO comments (story_id, session_token, content) VALUES (?, ?, ?)",
+            (story_id, session_token or None, content)
+        )
+        author_name = "匿名衰鬼"
+
+    conn.commit()
+    comment_id = cursor.lastrowid
+
+    cursor.execute("SELECT created_at FROM comments WHERE id = ?", (comment_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    return jsonify({
+        "id": comment_id,
+        "content": content,
+        "author_name": author_name,
+        "created_at": row["created_at"]
+    }), 201
+
+
+# ---- 我的頁面 API ----
+
+@app.route("/api/me/stories", methods=["GET"])
+def get_my_stories():
+    """
+    取得目前登入使用者發過的所有慘事（含拍拍數、留言數、是否有聊天室）
+    需要 JWT
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            s.id, s.content, s.pat_count, s.vote_count, s.category, s.created_at,
+            (SELECT COUNT(*) FROM comments c WHERE c.story_id = s.id) AS comment_count,
+            cr.id AS chat_room_id
+        FROM stories s
+        LEFT JOIN chat_rooms cr ON cr.story_id = s.id
+        WHERE s.user_id = ?
+        ORDER BY s.created_at DESC
+    """, (user["user_id"],))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify({
+        "stories": [
+            {
+                "id": r["id"],
+                "content": r["content"],
+                "pat_count": r["pat_count"],
+                "vote_count": r["vote_count"],
+                "category": r["category"],
+                "comment_count": r["comment_count"],
+                "chat_room_id": r["chat_room_id"],
+                "created_at": r["created_at"]
+            }
+            for r in rows
+        ]
+    }), 200
+
+
+@app.route("/api/me/stats", methods=["GET"])
+def get_my_stats():
+    """
+    取得目前登入使用者的統計數據
+    回傳: { story_count, total_pats, total_votes, chat_room_count }
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS story_count,
+            COALESCE(SUM(pat_count), 0) AS total_pats,
+            COALESCE(SUM(vote_count), 0) AS total_votes
+        FROM stories
+        WHERE user_id = ?
+    """, (user["user_id"],))
+    stats = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT COUNT(*) AS chat_room_count
+        FROM chat_rooms cr
+        JOIN stories s ON cr.story_id = s.id
+        WHERE s.user_id = ?
+    """, (user["user_id"],))
+    chat_stats = cursor.fetchone()
+    conn.close()
+
+    return jsonify({
+        "story_count": stats["story_count"],
+        "total_pats": stats["total_pats"],
+        "total_votes": stats["total_votes"],
+        "chat_room_count": chat_stats["chat_room_count"]
+    }), 200

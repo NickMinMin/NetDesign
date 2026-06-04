@@ -11,6 +11,7 @@ import { initSession } from './session.js'
 import { auth } from './auth.js'
 import { vote } from './vote.js'
 import { leaderboard } from './leaderboard.js'
+import { profile } from './profile.js'
 
 // 初始化匿名代號系統（取得/建立代號並顯示在導覽列）
 initSession()
@@ -35,3 +36,6 @@ vote.init()
 
 // 初始化慘度排行榜頁（監聽 hashchange，載入排行榜）
 leaderboard.init()
+
+// 初始化我的頁面
+profile.init()
