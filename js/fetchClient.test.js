@@ -104,7 +104,7 @@ describe('fetchClient', () => {
     })
 
     it('回傳 200 且 match_unlocked=true 時，data.match_unlocked 為 true', async () => {
-      const patData = { pat_count: 3, match_unlocked: true }
+      const patData = { pat_count: 1, match_unlocked: true }
       fetch.mockReturnValue(mockFetchResponse(200, patData))
 
       const result = await fetchClient.patStory('abc123')
@@ -203,7 +203,7 @@ describe('fetchClient', () => {
     })
 
     it('回傳 400 時，ok=false（pat_count 不足）', async () => {
-      fetch.mockReturnValue(mockFetchResponse(400, { message: 'pat_count 必須 >= 3' }))
+      fetch.mockReturnValue(mockFetchResponse(400, { message: 'pat_count 必須 >= 1' }))
 
       const result = await fetchClient.getChatRoomId('story-1')
 

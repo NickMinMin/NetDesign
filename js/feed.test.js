@@ -78,7 +78,7 @@ describe('feed.js 單元測試', () => {
 
   describe('初始化（feed.init）', () => {
     it('應呼叫 fetchClient.getRandomStory', async () => {
-      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 3 }
+      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 1 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
 
       feed.init()
@@ -90,7 +90,7 @@ describe('feed.js 單元測試', () => {
     })
 
     it('API 成功時應呼叫 renderer.renderStoryCard 渲染慘事', async () => {
-      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 3 }
+      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 1 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
 
       feed.init()
@@ -101,7 +101,7 @@ describe('feed.js 單元測試', () => {
     })
 
     it('API 成功時應更新 feedState.currentStory', async () => {
-      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 3 }
+      const mockStory = { id: 'story-1', content: '今天被老闆罵了', pat_count: 1 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
 
       feed.init()
@@ -305,12 +305,12 @@ describe('feed.js 單元測試', () => {
 
   describe('拍拍回應 match_unlocked=true', () => {
     it('應呼叫 fetchClient.getChatRoomId() 並呼叫 router.openChat()', async () => {
-      const mockStory = { id: 'story-1', content: '慘事', pat_count: 2 }
+      const mockStory = { id: 'story-1', content: '慘事', pat_count: 0 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
       fetchClient.patStory.mockResolvedValue({
         ok: true,
         status: 200,
-        data: { pat_count: 3, match_unlocked: true },
+        data: { pat_count: 1, match_unlocked: true },
       })
       fetchClient.getChatRoomId.mockResolvedValue({
         ok: true,
@@ -330,12 +330,12 @@ describe('feed.js 單元測試', () => {
     })
 
     it('getChatRoomId 失敗時應顯示錯誤訊息', async () => {
-      const mockStory = { id: 'story-1', content: '慘事', pat_count: 2 }
+      const mockStory = { id: 'story-1', content: '慘事', pat_count: 0 }
       fetchClient.getRandomStory.mockResolvedValue({ ok: true, status: 200, data: mockStory })
       fetchClient.patStory.mockResolvedValue({
         ok: true,
         status: 200,
-        data: { pat_count: 3, match_unlocked: true },
+        data: { pat_count: 1, match_unlocked: true },
       })
       fetchClient.getChatRoomId.mockResolvedValue({
         ok: false,

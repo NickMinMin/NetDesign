@@ -79,6 +79,15 @@ def migrate_db():
             conn.commit()
             print("Migration: vote_count column added successfully.")
 
+        # 遷移 1b：為 stories 表新增 user_id 欄位（若已存在則跳過）
+        cursor.execute("PRAGMA table_info(stories)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'user_id' not in columns:
+            print("Migration: Adding user_id column to stories table...")
+            cursor.execute("ALTER TABLE stories ADD COLUMN user_id INTEGER")
+            conn.commit()
+            print("Migration: user_id column added successfully.")
+
         # 遷移 2：建立 votes 表（若已存在則跳過）
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS votes (
@@ -97,6 +106,17 @@ def migrate_db():
         """)
         conn.commit()
         print("Migration: votes table and idx_votes_story_id ensured.")
+
+        # 遷移補充：為已存在但 token 為空的 stories 產生唯一 token
+        cursor.execute("SELECT id FROM stories WHERE token IS NULL OR token = ''")
+        rows = cursor.fetchall()
+        if rows:
+            print(f"Migration: Generating tokens for {len(rows)} existing stories...")
+            for row in rows:
+                new_token = uuid.uuid4().hex
+                cursor.execute("UPDATE stories SET token = ? WHERE id = ?", (new_token, row[0]))
+            conn.commit()
+            print("Migration: tokens generated for existing stories.")
 
     except Exception as e:
         print(f"Migration error: {e}")
@@ -251,12 +271,14 @@ def create_story():
 
     # 產生一組隨機的 UUID 作為發文者的專屬 Token 金鑰
     story_token = uuid.uuid4().hex
+    user = get_current_user()
+    user_id = user["user_id"] if user else None
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO stories (content, token) VALUES (?, ?)",
-        (content, story_token)
+        "INSERT INTO stories (content, token, user_id) VALUES (?, ?, ?)",
+        (content, story_token, user_id)
     )
     conn.commit()
     story_id = cursor.lastrowid
@@ -352,7 +374,10 @@ def pat_story(story_id):
     chat_room_id = None
     match_unlocked = False
 
-    if pat_count >= 3:
+    # 改為：拍一次即可解鎖聊天室
+    if pat_count >= 1:
+        # debug: show pat_count type
+        print(f"[DBG] pat_count={pat_count} ({type(pat_count)}) for story {story_id}")
         match_unlocked = True
 
         cursor.execute(
@@ -409,7 +434,8 @@ def create_chat_room():
             "message": "慘事不存在"
         }), 404
 
-    if story["pat_count"] < 3:
+    # 改為：拍一次即可解鎖聊天室
+    if story["pat_count"] < 1:
         conn.close()
         return jsonify({
             "message": "拍拍數不足，無法解鎖聊天室"
@@ -545,18 +571,32 @@ def send_message(chat_room_id):
             "message": "聊天室不存在"
         }), 404
 
-    # 安全校驗核心：交叉比對 sender_story_id 欄位與對應產生的 token，確保發言權
-    cursor.execute(
-        "SELECT id FROM stories WHERE id = ? AND token = ?",
-        (sender_story_id, provided_token)
-    )
-    sender_story = cursor.fetchone()
+    # 安全校驗核心：先嘗試用 JWT 驗證，再退回到 story token 檢查
+    jwt_payload = verify_jwt(provided_token)
+    if jwt_payload:
+        cursor.execute(
+            "SELECT id, user_id FROM stories WHERE id = ?",
+            (sender_story_id,)
+        )
+        sender_story = cursor.fetchone()
 
-    if not sender_story:
-        conn.close()
-        return jsonify({
-            "message": "發送者身分驗證失敗，無法發送訊息"
-        }), 403
+        if not sender_story or sender_story["user_id"] != jwt_payload["user_id"]:
+            conn.close()
+            return jsonify({
+                "message": "發送者身分驗證失敗，無法發送訊息"
+            }), 403
+    else:
+        cursor.execute(
+            "SELECT id FROM stories WHERE id = ? AND token = ?",
+            (sender_story_id, provided_token)
+        )
+        sender_story = cursor.fetchone()
+
+        if not sender_story:
+            conn.close()
+            return jsonify({
+                "message": "發送者身分驗證失敗，無法發送訊息"
+            }), 403
 
     try:
         cursor.execute(

@@ -10,20 +10,20 @@ DB_NAME = "loser.db"
 API_BASE = "http://localhost:5000"
 
 def setup_test_story():
-    """Create a test story with pat_count >= 3."""
+    """Create a test story with pat_count = 1."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Create a test story with pat_count = 3
+
+    # Create a test story with pat_count = 1
     cursor.execute(
         "INSERT INTO stories (content, pat_count) VALUES (?, ?)",
-        ("手動測試慘事 - 今天被老闆罵了", 3)
+        ("手動測試慘事 - 今天被老闆罵了", 1)
     )
     story_id = cursor.lastrowid
     conn.commit()
     conn.close()
-    
-    print(f"✓ Created test story with ID: {story_id}, pat_count: 3")
+
+    print(f"✓ Created test story with ID: {story_id}, pat_count: 1")
     return story_id
 
 def test_create_chat_room(story_id):
@@ -90,7 +90,7 @@ def test_error_cases():
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO stories (content, pat_count) VALUES (?, ?)",
-        ("測試慘事 - 拍拍數不足", 2)
+        ("測試慘事 - 拍拍數不足", 0)
     )
     insufficient_story_id = cursor.lastrowid
     conn.commit()

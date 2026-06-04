@@ -114,14 +114,17 @@ export const fetchClient = {
    */
   async sendMessage(chatRoomId, senderStoryId, content, customOptions = {}) {
     // 預設先抓這篇慘事專屬的 token
-    const token = localStorage.getItem(`story_token_${senderStoryId}`) || '';
+    const token = localStorage.getItem(`story_token_${senderStoryId}`);
+
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     // 合併設定檔：允許外部傳入的 customOptions (包含 headers) 進行覆蓋
     const defaultOptions = {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
+      headers,
       body: JSON.stringify({
         sender_story_id: Number(senderStoryId), // 轉成數字對齊後端 SQLite 型態
         content

@@ -4,7 +4,7 @@
 
 本設計文件定義「魯蛇回收站」（TrashMatch）專案中開發者 C 負責的功能實作細節，包括：
 
-1. **拍拍累積解鎖聊天室邏輯**：當慘事累積 3 個拍拍時，自動解鎖聊天室
+1. **拍拍累積解鎖聊天室邏輯**：當慘事被拍拍一次時，自動解鎖聊天室
 2. **聊天室介面與訊息更新機制**：提供簡易聊天介面，使用輪詢（polling）機制更新訊息
 3. **文案系統**：防呆提示與搞笑文案，強化使用者體驗
 4. **系統整合測試**：驗證完整流程（發文 → 拍拍 → 聊天）
@@ -63,9 +63,9 @@ sequenceDiagram
     Frontend->>Backend: PUT /api/stories/{id}/pat
     Backend->>Database: INSERT INTO pats
     Backend->>Database: UPDATE stories SET pat_count++
-    Database-->>Backend: pat_count = 3
+    Database-->>Backend: pat_count = 1
     Backend->>Database: INSERT INTO chat_rooms
-    Backend-->>Frontend: {pat_count: 3, match_unlocked: true}
+    Backend-->>Frontend: {pat_count: 1, match_unlocked: true}
     Frontend->>User: 顯示聊天室面板
 ```
 
