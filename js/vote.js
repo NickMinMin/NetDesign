@@ -119,24 +119,37 @@ function renderPair(a, b) {
  * @param {number} opponentId  對手的 Story id
  */
 async function handleVote(votedId, opponentId) {
-  // 未登入則停止（auth.requireLogin() 已處理跳轉）
   if (!auth.requireLogin()) return
+
+  // 停用兩個按鈕，避免重複點擊
+  const btnA = getEl('vote-btn-a')
+  const btnB = getEl('vote-btn-b')
+  if (btnA) btnA.disabled = true
+  if (btnB) btnB.disabled = true
 
   const result = await fetchClient.voteStory(votedId, opponentId)
 
   if (result.ok) {
-    // 成功（200）：計算百分比並顯示結果
     const counts = result.data.vote_counts
     const countA = counts[String(storyA.id)] ?? 0
     const countB = counts[String(storyB.id)] ?? 0
     const { pctA, pctB } = calculatePercentages(countA, countB)
     showResults(pctA, pctB)
+    // showResults 已隱藏按鈕，不需要恢復
   } else if (result.status === 409) {
-    showFeedback('你已經對這則慘事投過票了')
+    // 已投過：顯示訊息並直接顯示目前比例（若有資料）
+    showFeedback('你已經對這組對決投過票了，換一組吧 👇')
+    // 恢復按鈕讓使用者可以換一組
+    if (btnA) btnA.disabled = false
+    if (btnB) btnB.disabled = false
   } else if (result.status === 401) {
     auth.requireLogin()
+    if (btnA) btnA.disabled = false
+    if (btnB) btnB.disabled = false
   } else if (result.status === 0) {
     showFeedback('網路錯誤，請稍後再試')
+    if (btnA) btnA.disabled = false
+    if (btnB) btnB.disabled = false
   }
 }
 
