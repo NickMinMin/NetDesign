@@ -13,18 +13,33 @@ let currentStoryId = null
  */
 async function loadComments(storyId) {
   currentStoryId = storyId
-  const result = await fetchClient.getComments(storyId)
-
   const listEl = document.getElementById('comments-list')
   const countEl = document.getElementById('comments-count')
   if (!listEl) return
 
-  if (!result.ok || !result.data) {
-    listEl.innerHTML = '<p class="comments-error">留言載入失敗</p>'
+  // 先清空舊內容，顯示載入中
+  listEl.innerHTML = '<p class="comments-empty">載入中…</p>'
+
+  let result
+  try {
+    result = await fetchClient.getComments(storyId)
+  } catch {
+    listEl.innerHTML = '<p class="comments-empty">留言暫時無法載入</p>'
     return
   }
 
-  const comments = result.data.comments
+  // 後端還沒部署新版或路由不存在時，靜默降級
+  if (!result.ok) {
+    if (result.status === 404 || result.status === 0) {
+      listEl.innerHTML = '<p class="comments-empty">還沒有人留言，你來第一個</p>'
+      if (countEl) countEl.textContent = '0'
+    } else {
+      listEl.innerHTML = '<p class="comments-error">留言載入失敗</p>'
+    }
+    return
+  }
+
+  const comments = result.data?.comments ?? []
   if (countEl) countEl.textContent = comments.length
 
   if (comments.length === 0) {
@@ -70,8 +85,9 @@ async function submitComment() {
 
     if (result.ok) {
       if (inputEl) inputEl.value = ''
-      // 重新載入留言列表
       await loadComments(currentStoryId)
+    } else if (result.status === 404 || result.status === 0) {
+      if (feedbackEl) feedbackEl.textContent = '留言功能尚未在伺服器上線，請等待部署完成'
     } else {
       if (feedbackEl) feedbackEl.textContent = result.data?.message || '留言失敗，請稍後再試'
     }

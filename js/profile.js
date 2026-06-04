@@ -115,7 +115,6 @@ async function loadProfile() {
 
   if (!auth.requireLogin()) return
 
-  // 並行請求統計 + 慘事列表
   const [statsRes, storiesRes] = await Promise.all([
     fetchClient.getMyStats(),
     fetchClient.getMyStories(),
@@ -123,11 +122,14 @@ async function loadProfile() {
 
   if (statsRes.ok && statsRes.data) {
     renderStats(statsRes.data)
+  } else if (statsRes.status === 404 || statsRes.status === 0) {
+    showFeedback('個人頁面功能尚未在伺服器上線，請稍後再試')
+    return
   }
 
   if (storiesRes.ok && storiesRes.data) {
     renderMyStories(storiesRes.data.stories)
-  } else {
+  } else if (storiesRes.status !== 404 && storiesRes.status !== 0) {
     showFeedback('載入失敗，請稍後再試')
   }
 }
