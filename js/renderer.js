@@ -71,7 +71,10 @@ export const renderer = {
     if (!patBtn) return
 
     // 檢查是否已經拍過這個故事
-    const pattedStories = new Set(JSON.parse(localStorage.getItem('pattedStories') || '[]'))
+    // 優先使用記憶中的全域集合（由 feed.init 建立），否則回退到 localStorage
+    const pattedStories = window.__pattedStories instanceof Set
+      ? window.__pattedStories
+      : new Set(JSON.parse(localStorage.getItem('pattedStories') || '[]'))
     const isPatted = pattedStories.has(storyId)
 
     if (isPatted) {

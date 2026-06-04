@@ -12,7 +12,7 @@ import { auth } from './auth.js'
 const feedState = {
   currentStory: null, // 目前顯示的慘事 { id, content, pat_count }
   isPatting: false,   // 拍拍請求進行中旗標
-  pattedStories: new Set(JSON.parse(localStorage.getItem('pattedStories') || '[]')), // 已拍拍的故事ID集合
+  pattedStories: new Set(), // 已拍拍的故事ID集合（記憶內，不再持久化）
 }
 
 /**
@@ -66,9 +66,9 @@ async function handlePat() {
     const result = await fetchClient.patStory(feedState.currentStory.id)
 
     if (result.ok && result.data) {
-      // 拍拍成功：記錄已拍拍的故事
+      // 拍拍成功：記錄已拍拍的故事（存在於記憶中）
       feedState.pattedStories.add(feedState.currentStory.id)
-      localStorage.setItem('pattedStories', JSON.stringify([...feedState.pattedStories]))
+      if (window.__pattedStories) window.__pattedStories.add(feedState.currentStory.id)
 
       // 拍拍成功：遞增顯示 pat_count（需求 2.2）
       renderer.updatePatCount(result.data.pat_count)
@@ -80,15 +80,22 @@ async function handlePat() {
 
       // 若配對解鎖，開啟聊天室（需求 1.2, 1.3）
       if (result.data.match_unlocked) {
-        // 取得聊天室 ID
-        const chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
-        
+        // 取得聊天室 ID（若第一次呼叫失敗，嘗試短暫重試一次，避免 race condition）
+        let chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
+
+        if (!(chatRoomResult.ok && chatRoomResult.data)) {
+          // 稍等並重試一次
+          await new Promise((r) => setTimeout(r, 300))
+          chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
+        }
+
         if (chatRoomResult.ok && chatRoomResult.data) {
           // 開啟聊天室，傳入聊天室 ID 和慘事 ID
           router.openChat(chatRoomResult.data.chat_room_id, feedState.currentStory.id)
         } else {
           // 取得聊天室 ID 失敗，顯示錯誤訊息
           renderer.renderError(feedbackEl, '聊天室載入失敗，連系統都放棄你了')
+          console.debug('getChatRoomId failed after retry:', chatRoomResult)
         }
       }
     } else {
@@ -108,6 +115,10 @@ export const feed = {
    * 初始化 Feed 頁：載入第一則慘事，綁定按鈕事件
    */
   init() {
+    // 初始化記憶中的已拍拍集合（刷新後會重置）並掛到全域以供 renderer 使用
+    window.__pattedStories = new Set()
+    feedState.pattedStories = window.__pattedStories
+
     // 載入第一則慘事（需求 1.1）
     loadStory()
 
