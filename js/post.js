@@ -20,9 +20,6 @@ export const postState = {
 async function handleSubmit(event) {
   event.preventDefault()
 
-  // 未登入則跳轉到登入頁
-  if (!auth.requireLogin()) return
-
   const inputEl = document.getElementById('post-input')
   const submitBtn = document.getElementById('post-submit')
   const feedbackEl = document.getElementById('post-feedback')
@@ -35,6 +32,12 @@ async function handleSubmit(event) {
   // 空白驗證：trim 後為空則顯示提示並阻止送出
   if (content.trim() === '') {
     renderer.renderError(feedbackEl, '總得說點什麼吧？')
+    return
+  }
+
+  // 未登入：先把內容存到 sessionStorage，跳轉登入後可自動填回
+  if (!auth.requireLogin()) {
+    sessionStorage.setItem('draft_post_content', content)
     return
   }
 
@@ -54,6 +57,9 @@ async function handleSubmit(event) {
         localStorage.setItem(`story_token_${result.data.id}`, result.data.token)
         localStorage.setItem('my_last_story_id', result.data.id) // 記錄自己最新的故事 ID
       }
+
+      // 投稿成功後清除草稿
+      sessionStorage.removeItem('draft_post_content')
 
       // 送出成功：清空表單並顯示成功訊息
       renderer.clearPostForm()
@@ -79,10 +85,25 @@ async function handleSubmit(event) {
   }
 }
 
+/**
+ * 若 sessionStorage 有存草稿（登入前留下的），自動填回輸入框
+ */
+function restoreDraft() {
+  const draft = sessionStorage.getItem('draft_post_content')
+  if (!draft) return
+
+  const inputEl = document.getElementById('post-input')
+  if (inputEl && !inputEl.value) {
+    inputEl.value = draft
+    // 填回後清除草稿，避免反覆填入
+    sessionStorage.removeItem('draft_post_content')
+  }
+}
+
 // 公開介面
 export const post = {
   /**
-   * 初始化 Post 頁：綁定表單送出事件
+   * 初始化 Post 頁：綁定表單送出事件，並在切換到 #post 頁時自動填回草稿
    */
   init() {
     const formEl = document.getElementById('post-form')
@@ -90,6 +111,18 @@ export const post = {
       // 移除舊的監聽器（若有），確保冪等性
       formEl.removeEventListener('submit', handleSubmit)
       formEl.addEventListener('submit', handleSubmit)
+    }
+
+    // 監聽路由切換，切到 #post 時自動填回草稿（登入後返回的情況）
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash === '#post') {
+        restoreDraft()
+      }
+    })
+
+    // 若頁面初始就在 #post，也嘗試填回草稿
+    if (window.location.hash === '#post') {
+      restoreDraft()
     }
   },
 }

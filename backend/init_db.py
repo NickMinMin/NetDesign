@@ -20,12 +20,17 @@ def init_db():
     """)
 
     # 拍拍紀錄資料表
+    # UNIQUE(story_id, ip_hash) 可防止同 IP 重複拍拍
+    # 目前以 story_id + session_token 為唯一鍵（未登入用 session，已登入用 user_id）
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS pats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         story_id INTEGER NOT NULL,
+        user_id INTEGER,
+        session_token TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (story_id) REFERENCES stories(id)
+        FOREIGN KEY (story_id) REFERENCES stories(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
     )
     """)
 

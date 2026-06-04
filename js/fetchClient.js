@@ -61,9 +61,10 @@ async function request(url, options = {}) {
 export const fetchClient = {
   /**
    * 隨機撈取一則慘事
+   * @param {string} [url] - 可選，覆蓋預設 URL（用於傳遞 exclude_id 等 query param）
    */
-  async getRandomStory() {
-    return request('/api/stories/random');
+  async getRandomStory(url = '/api/stories/random') {
+    return request(url);
   },
 
   /**
@@ -78,10 +79,14 @@ export const fetchClient = {
 
   /**
    * 幫慘事拍拍
+   * @param {number} storyId - 慘事 ID
+   * @param {string} [sessionToken] - 未登入時的 session token，用於後端防重複
    */
-  async patStory(storyId) {
+  async patStory(storyId, sessionToken = '') {
+    const body = sessionToken ? JSON.stringify({ session_token: sessionToken }) : undefined
     return request(`/api/stories/${storyId}/pat`, {
-      method: 'PUT'
+      method: 'PUT',
+      ...(body ? { body } : {})
     });
   },
 

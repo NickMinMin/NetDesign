@@ -18,13 +18,18 @@ const feedState = {
 /**
  * 載入一則隨機慘事並渲染至 Story_Card
  * 若 API 回傳非 200，顯示錯誤訊息
+ * @param {number|null} excludeId - 排除的慘事 id（避免連續抽到同一則）
  */
-async function loadStory() {
+async function loadStory(excludeId = null) {
   const feedbackEl = document.getElementById('feed-feedback')
   // 清空上一次的錯誤訊息
   if (feedbackEl) feedbackEl.innerHTML = ''
 
-  const result = await fetchClient.getRandomStory()
+  const url = excludeId
+    ? `/api/stories/random?exclude_id=${excludeId}`
+    : '/api/stories/random'
+
+  const result = await fetchClient.getRandomStory(url)
 
   if (result.ok && result.data) {
     feedState.currentStory = result.data
@@ -46,7 +51,7 @@ async function handlePat() {
   // 未登入則跳轉到登入頁
   if (!auth.requireLogin()) return
 
-  // 檢查是否已經拍過這個故事
+  // 檢查是否已經拍過這個故事（記憶中的集合）
   if (feedState.pattedStories.has(feedState.currentStory.id)) {
     renderer.renderError(document.getElementById('feed-feedback'), '你已經拍過這個慘事了，一件慘事只能按一次拍拍')
     return
@@ -63,7 +68,9 @@ async function handlePat() {
   if (patBtn) patBtn.disabled = true
 
   try {
-    const result = await fetchClient.patStory(feedState.currentStory.id)
+    // 取得 session_token（未登入情況下用於後端防重複）
+    const sessionToken = localStorage.getItem('trashmatch_session_token') || ''
+    const result = await fetchClient.patStory(feedState.currentStory.id, sessionToken)
 
     if (result.ok && result.data) {
       // 拍拍成功：記錄已拍拍的故事（存在於記憶中）
@@ -98,6 +105,11 @@ async function handlePat() {
           console.debug('getChatRoomId failed after retry:', chatRoomResult)
         }
       }
+    } else if (result.status === 409) {
+      // 後端回傳已拍過，同步記錄到記憶集合並更新按鈕狀態
+      feedState.pattedStories.add(feedState.currentStory.id)
+      if (window.__pattedStories) window.__pattedStories.add(feedState.currentStory.id)
+      renderer.renderError(feedbackEl, '你已經拍過這個慘事了，一件慘事只能按一次拍拍')
     } else {
       // 拍拍失敗：顯示錯誤訊息（需求 2.5）
       renderer.renderError(feedbackEl, '拍拍失敗，請稍後再試')
@@ -126,7 +138,9 @@ export const feed = {
     const nextBtn = document.getElementById('next-btn')
     if (nextBtn) {
       nextBtn.addEventListener('click', () => {
-        loadStory()
+        // 傳入目前慘事 id，避免連續抽到同一則
+        const currentId = feedState.currentStory ? feedState.currentStory.id : null
+        loadStory(currentId)
       })
     }
 

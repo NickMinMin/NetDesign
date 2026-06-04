@@ -27,7 +27,7 @@ export function getNickname() {
  * - 若 localStorage 已有 token，帶著 token 去後端確認
  * - 若沒有，後端自動產生新代號
  * - 將 token 和 nickname 存入 localStorage
- * - 更新導覽列顯示代號
+ * - 僅在未登入狀態下更新導覽列顯示代號（避免與 auth.js 衝突）
  */
 export async function initSession() {
   const existingToken = getSessionToken()
@@ -45,13 +45,17 @@ export async function initSession() {
       localStorage.setItem(SESSION_TOKEN_KEY, data.session_token)
       localStorage.setItem(SESSION_NICKNAME_KEY, data.nickname)
 
-      // 更新導覽列顯示代號
-      updateNavNickname(data.nickname)
+      // 僅在未登入時更新導覽列（已登入由 auth.js 負責顯示真實代號）
+      const isLoggedIn = !!localStorage.getItem('trashmatch_auth_token')
+      if (!isLoggedIn) {
+        updateNavNickname(data.nickname)
+      }
     }
   } catch (err) {
     // 網路失敗時用本地暫存的代號，不影響使用
     const cached = getNickname()
-    if (cached) updateNavNickname(cached)
+    const isLoggedIn = !!localStorage.getItem('trashmatch_auth_token')
+    if (cached && !isLoggedIn) updateNavNickname(cached)
   }
 }
 

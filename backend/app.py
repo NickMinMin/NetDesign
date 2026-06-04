@@ -14,6 +14,7 @@ CORS(app)
 DB_NAME = "loser.db"
 
 # JWT 密鑰（正式環境應從環境變數讀取）
+# 注意：JWT_SECRET 應設定在環境變數中，不應硬編碼
 JWT_SECRET = os.environ.get("JWT_SECRET", "trashmatch_secret_key_change_in_prod")
 JWT_EXPIRE_DAYS = 30
 
@@ -53,8 +54,6 @@ def get_current_user():
         return None
     token = auth_header.split(" ")[1]
     return verify_jwt(token)
-
-DB_NAME = "loser.db"
 
 # --- [新增] 自動遷移資料庫函數 ---
 def migrate_db():
@@ -105,9 +104,7 @@ def migrate_db():
         ON votes(story_id)
         """)
         conn.commit()
-        print("Migration: votes table and idx_votes_story_id ensured.")
-
-        # 遷移補充：為已存在但 token 為空的 stories 產生唯一 token
+        print("Migration: votes table and idx_votes_story_id ensured.")        # 遷移補充：為已存在但 token 為空的 stories 產生唯一 token
         cursor.execute("SELECT id FROM stories WHERE token IS NULL OR token = ''")
         rows = cursor.fetchall()
         if rows:
@@ -117,6 +114,19 @@ def migrate_db():
                 cursor.execute("UPDATE stories SET token = ? WHERE id = ?", (new_token, row[0]))
             conn.commit()
             print("Migration: tokens generated for existing stories.")
+
+        # 遷移 3：為 pats 表新增 user_id / session_token 欄位（若已存在則跳過）
+        cursor.execute("PRAGMA table_info(pats)")
+        pat_columns = [column[1] for column in cursor.fetchall()]
+        if 'user_id' not in pat_columns:
+            print("Migration: Adding user_id column to pats table...")
+            cursor.execute("ALTER TABLE pats ADD COLUMN user_id INTEGER")
+            conn.commit()
+        if 'session_token' not in pat_columns:
+            print("Migration: Adding session_token column to pats table...")
+            cursor.execute("ALTER TABLE pats ADD COLUMN session_token TEXT")
+            conn.commit()
+            print("Migration: pats table updated.")
 
     except Exception as e:
         print(f"Migration error: {e}")
@@ -294,9 +304,24 @@ def create_story():
 
 @app.route("/api/stories/random", methods=["GET"])
 def get_random_story():
+    """
+    取得一則隨機慘事
+    query param: exclude_id（選填，排除指定 id，避免連續抽到同一則）
+    """
+    exclude_id = request.args.get("exclude_id")
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, content, pat_count FROM stories")
+
+    if exclude_id is not None:
+        try:
+            exclude_id_int = int(exclude_id)
+            cursor.execute("SELECT id, content, pat_count FROM stories WHERE id != ?", (exclude_id_int,))
+        except (ValueError, TypeError):
+            cursor.execute("SELECT id, content, pat_count FROM stories")
+    else:
+        cursor.execute("SELECT id, content, pat_count FROM stories")
+
     stories = cursor.fetchall()
     conn.close()
 
@@ -339,6 +364,13 @@ def get_random_pair():
 
 @app.route("/api/stories/<int:story_id>/pat", methods=["PUT"])
 def pat_story(story_id):
+    """
+    拍拍一則慘事
+    - 已登入：以 user_id 為唯一鍵，同一帳號只能拍拍一次
+    - 未登入：以 session_token 為唯一鍵，同一 session 只能拍拍一次
+    """
+    user = get_current_user()
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -354,10 +386,41 @@ def pat_story(story_id):
             "message": "拍拍失敗，請稍後再試"
         }), 404
 
-    cursor.execute(
-        "INSERT INTO pats (story_id) VALUES (?)",
-        (story_id,)
-    )
+    # 防重複：已登入用 user_id，未登入用 session_token
+    if user:
+        cursor.execute(
+            "SELECT id FROM pats WHERE story_id = ? AND user_id = ?",
+            (story_id, user["user_id"])
+        )
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({"message": "你已經拍過這則慘事了"}), 409
+        cursor.execute(
+            "INSERT INTO pats (story_id, user_id) VALUES (?, ?)",
+            (story_id, user["user_id"])
+        )
+    else:
+        # 取得 session token（從 request body 傳入，未登入情況）
+        data = request.get_json(silent=True) or {}
+        session_token = (data.get("session_token") or "").strip()
+        if session_token:
+            cursor.execute(
+                "SELECT id FROM pats WHERE story_id = ? AND session_token = ?",
+                (story_id, session_token)
+            )
+            if cursor.fetchone():
+                conn.close()
+                return jsonify({"message": "你已經拍過這則慘事了"}), 409
+            cursor.execute(
+                "INSERT INTO pats (story_id, session_token) VALUES (?, ?)",
+                (story_id, session_token)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO pats (story_id) VALUES (?)",
+                (story_id,)
+            )
+
     cursor.execute(
         "UPDATE stories SET pat_count = pat_count + 1 WHERE id = ?",
         (story_id,)
@@ -374,10 +437,8 @@ def pat_story(story_id):
     chat_room_id = None
     match_unlocked = False
 
-    # 改為：拍一次即可解鎖聊天室
+    # 拍一次即可解鎖聊天室
     if pat_count >= 1:
-        # debug: show pat_count type
-        print(f"[DBG] pat_count={pat_count} ({type(pat_count)}) for story {story_id}")
         match_unlocked = True
 
         cursor.execute(
@@ -728,12 +789,25 @@ def vote_story(story_id):
     """
     對指定慘事投票
     需要 JWT Bearer token
-    query param: opponent_id（選填，用於回傳對手最新票數）
+    query param: opponent_id（必填，用於回傳對手最新票數，確保百分比正確顯示）
     回傳: { vote_counts: { str(story_id): N, str(opponent_id): M } }
     """
     user = get_current_user()
     if user is None:
         return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    # opponent_id 現在視為必填，若未提供則回傳錯誤
+    opponent_id_raw = request.args.get("opponent_id")
+    if opponent_id_raw is None:
+        return jsonify({"message": "opponent_id 參數為必填"}), 400
+
+    try:
+        opponent_id_int = int(opponent_id_raw)
+    except (ValueError, TypeError):
+        return jsonify({"message": "opponent_id 必須為整數"}), 400
+
+    if opponent_id_int == story_id:
+        return jsonify({"message": "不可投票給自己對抗自己"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -744,6 +818,13 @@ def vote_story(story_id):
     if not story:
         conn.close()
         return jsonify({"message": "慘事不存在"}), 404
+
+    # 查詢對手是否存在
+    cursor.execute("SELECT id FROM stories WHERE id = ?", (opponent_id_int,))
+    opponent = cursor.fetchone()
+    if not opponent:
+        conn.close()
+        return jsonify({"message": "對手慘事不存在"}), 404
 
     try:
         cursor.execute(
@@ -762,21 +843,18 @@ def vote_story(story_id):
     # 取得本則慘事最新票數
     cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (story_id,))
     updated = cursor.fetchone()
-    vote_counts = {str(story_id): updated["vote_count"]}
 
-    # 若有傳入對手 id，一併回傳對手最新票數
-    opponent_id = request.args.get("opponent_id")
-    if opponent_id is not None:
-        try:
-            opponent_id_int = int(opponent_id)
-            cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (opponent_id_int,))
-            opponent = cursor.fetchone()
-            if opponent:
-                vote_counts[str(opponent_id_int)] = opponent["vote_count"]
-        except (ValueError, TypeError):
-            pass  # opponent_id 非整數時忽略
+    # 一併回傳對手最新票數（確保前端百分比正確）
+    cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (opponent_id_int,))
+    opponent_updated = cursor.fetchone()
 
     conn.close()
+
+    vote_counts = {
+        str(story_id): updated["vote_count"],
+        str(opponent_id_int): opponent_updated["vote_count"] if opponent_updated else 0,
+    }
+
     return jsonify({"vote_counts": vote_counts}), 200
 
 
