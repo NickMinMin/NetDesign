@@ -1070,3 +1070,11 @@ main {
   color: var(--color-text-muted, #888);
   padding: var(--spacing-lg);
 }
+
+/* ===== 排行榜細節欄 ===== */
+.leaderboard-detail {
+  font-size: 0.72rem;
+  color: var(--color-text-muted, #888);
+  margin-left: auto;
+  white-space: nowrap;
+}

@@ -67,5 +67,6 @@ function updateNavNickname(nickname) {
   const el = document.getElementById('nav-nickname')
   if (el) {
     el.textContent = `👤 ${nickname}`
+    el.classList.remove('hidden')  // 修正：必須移除 hidden 才能顯示
   }
 }

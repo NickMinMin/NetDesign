@@ -28,34 +28,55 @@ function clearFeedback() {
 
 /**
  * 渲染排行榜列表
- * @param {Array<{id: number, content: string, vote_count: number}>} stories - 排行榜資料
+ * @param {Array<{id: number, content: string, vote_count: number, pat_count: number, score: number}>} stories
  */
 function renderLeaderboard(stories) {
   const listEl = document.getElementById('leaderboard-list')
   if (!listEl) return
 
-  // 清空現有內容
   listEl.innerHTML = ''
 
   stories.forEach((story, index) => {
     const rank = index + 1
-    // 排名 emoji 前三名特殊標示
     const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
-    // 內容摘要最多 100 字
     const summary = story.content.length > 100
       ? story.content.slice(0, 100) + '…'
       : story.content
 
     const li = document.createElement('li')
     li.className = 'leaderboard-item'
-    li.innerHTML = `
-      <span class="leaderboard-rank">${rankEmoji}</span>
-      <span class="leaderboard-content">${summary}</span>
-      <span class="leaderboard-votes">
-        <span class="leaderboard-votes-count">${story.vote_count}</span>
-        票
-      </span>
-    `
+
+    // 排名
+    const rankSpan = document.createElement('span')
+    rankSpan.className = 'leaderboard-rank'
+    rankSpan.textContent = rankEmoji
+
+    // 內容（textContent 防 XSS）
+    const contentSpan = document.createElement('span')
+    contentSpan.className = 'leaderboard-content'
+    contentSpan.textContent = summary
+
+    // 分數區（拍拍 + 投票 = 綜合慘度）
+    const scoreSpan = document.createElement('span')
+    scoreSpan.className = 'leaderboard-votes'
+
+    const scoreNum = document.createElement('span')
+    scoreNum.className = 'leaderboard-votes-count'
+    // 優先用後端回傳的 score（綜合分），若沒有則 fallback 用 vote_count
+    scoreNum.textContent = story.score ?? story.vote_count
+
+    scoreSpan.appendChild(scoreNum)
+    scoreSpan.append(' 慘')  // 「慘」比「票」更貼合主題
+
+    // 小分類標籤（若有）
+    const detailSpan = document.createElement('span')
+    detailSpan.className = 'leaderboard-detail'
+    detailSpan.textContent = `🫂${story.pat_count ?? 0} ⚔️${story.vote_count ?? 0}`
+
+    li.appendChild(rankSpan)
+    li.appendChild(contentSpan)
+    li.appendChild(detailSpan)
+    li.appendChild(scoreSpan)
     listEl.appendChild(li)
   })
 }
@@ -84,7 +105,7 @@ async function loadLeaderboard() {
   const stories = result.data && result.data.stories ? result.data.stories : []
 
   if (stories.length === 0) {
-    showFeedback('還沒有人投票，快去 #vote 頁面開始比慘！')
+    showFeedback('還沒有人上榜，去拍拍或投票讓慘事登上排行榜！')
     return
   }
 

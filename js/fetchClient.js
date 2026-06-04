@@ -68,12 +68,12 @@ export const fetchClient = {
   },
 
   /**
-   * 投稿新慘事
+   * 投稿新慘事（支援分類，統一入口）
    */
-  async postStory(content) {
+  async postStoryWithCategory(content, category = '其他衰事') {
     return request('/api/stories', {
       method: 'POST',
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content, category }),
     });
   },
 

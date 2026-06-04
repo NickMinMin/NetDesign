@@ -15,6 +15,9 @@ const CATEGORY_EMOJI = {
   '其他衰事': '🗑️',
 }
 
+// 允許的分類白名單（防止非預期值插入 DOM）
+const VALID_CATEGORIES = Object.keys(CATEGORY_EMOJI)
+
 function showFeedback(msg) {
   const el = document.getElementById('profile-feedback')
   if (el) el.textContent = msg
@@ -23,6 +26,18 @@ function showFeedback(msg) {
 function clearFeedback() {
   const el = document.getElementById('profile-feedback')
   if (el) el.textContent = ''
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function formatDate(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
 }
 
 /**
@@ -42,7 +57,7 @@ function renderStats(stats) {
 }
 
 /**
- * 渲染我的慘事列表
+ * 渲染我的慘事列表（完全用 DOM API，避免 XSS）
  */
 function renderMyStories(stories) {
   const listEl = document.getElementById('profile-stories-list')
@@ -51,64 +66,82 @@ function renderMyStories(stories) {
   listEl.innerHTML = ''
 
   if (stories.length === 0) {
-    listEl.innerHTML = '<li class="profile-story-empty">你還沒發過慘事，快去投稿！</li>'
+    const empty = document.createElement('li')
+    empty.className = 'profile-story-empty'
+    empty.textContent = '你還沒發過慘事，快去投稿！'
+    listEl.appendChild(empty)
     return
   }
 
   stories.forEach((story) => {
-    const emoji = CATEGORY_EMOJI[story.category] || '🗑️'
+    // 防禦：確保 category 是合法值
+    const safeCategory = VALID_CATEGORIES.includes(story.category) ? story.category : '其他衰事'
+    const emoji = CATEGORY_EMOJI[safeCategory]
     const summary = story.content.length > 80
       ? story.content.slice(0, 80) + '…'
       : story.content
 
     const li = document.createElement('li')
     li.className = 'profile-story-item'
-    li.innerHTML = `
-      <div class="profile-story-header">
-        <span class="profile-story-category">${emoji} ${story.category}</span>
-        <span class="profile-story-date">${formatDate(story.created_at)}</span>
-      </div>
-      <p class="profile-story-content">${escapeHtml(summary)}</p>
-      <div class="profile-story-stats">
-        <span>🫂 ${story.pat_count} 拍拍</span>
-        <span>💬 ${story.comment_count} 留言</span>
-        <span>⚔️ ${story.vote_count} 票</span>
-        ${story.chat_room_id
-          ? `<button class="pixel-btn pixel-btn--sm profile-open-chat-btn"
-               data-chat-room-id="${story.chat_room_id}"
-               data-story-id="${story.id}">
-               💬 開聊天室
-             </button>`
-          : ''}
-      </div>
-    `
+
+    // header（分類 + 日期）
+    const header = document.createElement('div')
+    header.className = 'profile-story-header'
+
+    const categorySpan = document.createElement('span')
+    categorySpan.className = 'profile-story-category'
+    categorySpan.textContent = `${emoji} ${safeCategory}`
+
+    const dateSpan = document.createElement('span')
+    dateSpan.className = 'profile-story-date'
+    dateSpan.textContent = formatDate(story.created_at)
+
+    header.appendChild(categorySpan)
+    header.appendChild(dateSpan)
+
+    // 內容
+    const contentP = document.createElement('p')
+    contentP.className = 'profile-story-content'
+    contentP.textContent = summary  // textContent 防 XSS
+
+    // 統計列
+    const statsDiv = document.createElement('div')
+    statsDiv.className = 'profile-story-stats'
+
+    const patSpan = document.createElement('span')
+    patSpan.textContent = `🫂 ${story.pat_count} 拍拍`
+
+    const commentSpan = document.createElement('span')
+    commentSpan.textContent = `💬 ${story.comment_count} 留言`
+
+    const voteSpan = document.createElement('span')
+    voteSpan.textContent = `⚔️ ${story.vote_count} 票`
+
+    statsDiv.appendChild(patSpan)
+    statsDiv.appendChild(commentSpan)
+    statsDiv.appendChild(voteSpan)
+
+    // 聊天室按鈕（若有）
+    if (story.chat_room_id) {
+      const btn = document.createElement('button')
+      btn.className = 'pixel-btn pixel-btn--sm profile-open-chat-btn'
+      btn.textContent = '💬 開聊天室'
+      btn.addEventListener('click', () => {
+        router.openChat(String(story.chat_room_id), String(story.id))
+      })
+      statsDiv.appendChild(btn)
+    }
+
+    li.appendChild(header)
+    li.appendChild(contentP)
+    li.appendChild(statsDiv)
     listEl.appendChild(li)
   })
-
-  // 綁定聊天室按鈕
-  listEl.querySelectorAll('.profile-open-chat-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const chatRoomId = btn.dataset.chatRoomId
-      const storyId = btn.dataset.storyId
-      router.openChat(chatRoomId, storyId)
-    })
-  })
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
-}
-
-function formatDate(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
 }
 
 /**
  * 載入我的頁面資料
+ * stats 和 stories 分開處理，任一失敗不影響另一個顯示
  */
 async function loadProfile() {
   clearFeedback()
@@ -120,17 +153,25 @@ async function loadProfile() {
     fetchClient.getMyStories(),
   ])
 
+  // stats
   if (statsRes.ok && statsRes.data) {
     renderStats(statsRes.data)
-  } else if (statsRes.status === 404 || statsRes.status === 0) {
+  } else if (statsRes.status === 0) {
     showFeedback('個人頁面功能尚未在伺服器上線，請稍後再試')
-    return
+  } else if (!statsRes.ok) {
+    showFeedback('統計資料載入失敗')
   }
 
+  // stories（獨立處理，不受 stats 失敗影響）
   if (storiesRes.ok && storiesRes.data) {
     renderMyStories(storiesRes.data.stories)
-  } else if (storiesRes.status !== 404 && storiesRes.status !== 0) {
-    showFeedback('載入失敗，請稍後再試')
+  } else if (storiesRes.status === 0) {
+    // 已在 stats 顯示錯誤，不重複
+  } else if (!storiesRes.ok) {
+    const listEl = document.getElementById('profile-stories-list')
+    if (listEl) {
+      listEl.innerHTML = '<li class="profile-story-empty">載入失敗，請稍後再試</li>'
+    }
   }
 }
 

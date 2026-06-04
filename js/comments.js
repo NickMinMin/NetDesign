@@ -17,7 +17,10 @@ async function loadComments(storyId) {
   const countEl = document.getElementById('comments-count')
   if (!listEl) return
 
-  // 先清空舊內容，顯示載入中
+  // 切換慘事時清空留言輸入框，避免送出舊稿到新慘事
+  const inputEl = document.getElementById('comment-input')
+  if (inputEl) inputEl.value = ''
+
   listEl.innerHTML = '<p class="comments-empty">載入中…</p>'
 
   let result

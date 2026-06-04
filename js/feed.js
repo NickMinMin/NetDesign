@@ -91,24 +91,21 @@ async function handlePat() {
         pat_count: result.data.pat_count,
       }
 
-      // 若配對解鎖，開啟聊天室（需求 1.2, 1.3）
+      // 若配對解鎖，開啟聊天室
       if (result.data.match_unlocked) {
-        // 取得聊天室 ID（若第一次呼叫失敗，嘗試短暫重試一次，避免 race condition）
-        let chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
+        // 後端 pat 回應已包含 chat_room_id，直接使用，不需要再多一次 API 請求
+        const chatRoomId = result.data.chat_room_id
 
-        if (!(chatRoomResult.ok && chatRoomResult.data)) {
-          // 稍等並重試一次
-          await new Promise((r) => setTimeout(r, 300))
-          chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
-        }
-
-        if (chatRoomResult.ok && chatRoomResult.data) {
-          // 開啟聊天室，傳入聊天室 ID 和慘事 ID
-          router.openChat(chatRoomResult.data.chat_room_id, feedState.currentStory.id)
+        if (chatRoomId) {
+          router.openChat(chatRoomId, feedState.currentStory.id)
         } else {
-          // 取得聊天室 ID 失敗，顯示錯誤訊息
-          renderer.renderError(feedbackEl, '聊天室載入失敗，連系統都放棄你了')
-          console.debug('getChatRoomId failed after retry:', chatRoomResult)
+          // fallback：若 pat 回應沒帶 chat_room_id（極少情況），才另外取
+          const chatRoomResult = await fetchClient.getChatRoomId(feedState.currentStory.id)
+          if (chatRoomResult.ok && chatRoomResult.data) {
+            router.openChat(chatRoomResult.data.chat_room_id, feedState.currentStory.id)
+          } else {
+            renderer.renderError(feedbackEl, '聊天室載入失敗，連系統都放棄你了')
+          }
         }
       }
     } else if (result.status === 409) {

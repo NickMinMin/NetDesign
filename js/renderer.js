@@ -113,60 +113,6 @@ export const renderer = {
   },
 
   /**
-   * 渲染訊息列表到聊天室
-   * Requirement 2.2, 2.5, 6.2, 6.3
-   * @param {Array} messages - 訊息陣列 [{id, sender_story_id, content, created_at}, ...]
-   * @param {number|string} currentStoryId - 當前使用者的慘事 ID（用於區分發送者/接收者）
-   */
-  renderMessages(messages, currentStoryId) {
-    const container = document.getElementById('chat-messages')
-    if (!container) return
-
-    // 若無訊息，顯示空狀態
-    if (!messages || messages.length === 0) {
-      this.renderEmptyChatState()
-      return
-    }
-
-    // 生成訊息氣泡 HTML
-    const messagesHtml = messages
-      .map(msg => {
-        const isSender = String(msg.sender_story_id) === String(currentStoryId)
-        const bubbleClass = isSender ? 'chat-message--sender' : 'chat-message--receiver'
-        const timestamp = this.formatTimestamp(msg.created_at)
-        
-        return `
-          <div class="chat-message ${bubbleClass}">
-            <div class="chat-message__content">${this.escapeHtml(msg.content)}</div>
-            <div class="chat-message__time">${timestamp}</div>
-          </div>
-        `
-      })
-      .join('')
-
-    container.innerHTML = messagesHtml
-
-    // 自動滾動到最新訊息
-    this.scrollToLatestMessage()
-  },
-
-  /**
-   * 渲染聊天室開場白（配對成功訊息）
-   * Requirement 6.2
-   */
-  renderChatGreeting() {
-    const container = document.getElementById('chat-messages')
-    if (!container) return
-
-    const greetingHtml = `
-      <div class="chat-greeting">
-        💘 配對成功！你們都沒救了
-      </div>
-    `
-    container.innerHTML = greetingHtml
-  },
-
-  /**
    * 渲染聊天室空狀態（無訊息時）
    * Requirement 6.3
    */

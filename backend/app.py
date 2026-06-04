@@ -371,16 +371,18 @@ def get_random_story():
         params.append(category)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-    cursor.execute(f"SELECT id, content, pat_count, category FROM stories {where_clause}", params)
-    stories = cursor.fetchall()
+    # 使用 ORDER BY RANDOM() 避免把整個表載入記憶體再隨機取樣
+    cursor.execute(
+        f"SELECT id, content, pat_count, category FROM stories {where_clause} ORDER BY RANDOM() LIMIT 1",
+        params
+    )
+    story = cursor.fetchone()
     conn.close()
 
-    if not stories:
+    if not story:
         return jsonify({
             "message": "目前沒有慘事，快去投稿吧！"
         }), 404
-
-    story = random.choice(stories)
 
     return jsonify({
         "id": story["id"],
@@ -392,9 +394,14 @@ def get_random_story():
 
 @app.route("/api/stories/random-pair", methods=["GET"])
 def get_random_pair():
+    """
+    取得兩則不同的隨機慘事用於比慘對決
+    使用 ORDER BY RANDOM() 直接在 DB 層隨機，不把整個表載入記憶體
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, content, vote_count FROM stories")
+    # 直接在 DB 層取兩筆隨機，效能優於全撈再 random.sample
+    cursor.execute("SELECT id, content, vote_count FROM stories ORDER BY RANDOM() LIMIT 2")
     stories = cursor.fetchall()
     conn.close()
 
@@ -403,12 +410,10 @@ def get_random_pair():
             "message": "慘事數量不足，快去投稿吧！"
         }), 404
 
-    pair = random.sample(list(stories), 2)
-
     return jsonify({
         "stories": [
-            {"id": pair[0]["id"], "content": pair[0]["content"], "vote_count": pair[0]["vote_count"]},
-            {"id": pair[1]["id"], "content": pair[1]["content"], "vote_count": pair[1]["vote_count"]}
+            {"id": stories[0]["id"], "content": stories[0]["content"], "vote_count": stories[0]["vote_count"]},
+            {"id": stories[1]["id"], "content": stories[1]["content"], "vote_count": stories[1]["vote_count"]}
         ]
     }), 200
 
@@ -467,11 +472,9 @@ def pat_story(story_id):
                 (story_id, session_token)
             )
         else:
-            cursor.execute(
-                "INSERT INTO pats (story_id) VALUES (?)",
-                (story_id,)
-            )
-
+            # 未登入且未提供 session_token：拒絕，防止無限拍拍
+            conn.close()
+            return jsonify({"message": "未登入請提供 session_token 才能拍拍"}), 400
     cursor.execute(
         "UPDATE stories SET pat_count = pat_count + 1 WHERE id = ?",
         (story_id,)
@@ -606,16 +609,16 @@ def get_messages(chat_room_id):
         }), 404
 
     if since:
+        # 先驗證 since 是否為合法 datetime 格式，避免暴露內部錯誤
         try:
-            cursor.execute(
-                "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? AND created_at > ? ORDER BY created_at ASC",
-                (chat_room_id, since)
-            )
-        except Exception:
+            datetime.datetime.fromisoformat(since)
+        except ValueError:
             conn.close()
-            return jsonify({
-                "message": "since 參數格式錯誤"
-            }), 400
+            return jsonify({"message": "since 參數格式錯誤，需為 ISO 8601 時間戳"}), 400
+        cursor.execute(
+            "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? AND created_at > ? ORDER BY created_at ASC",
+            (chat_room_id, since)
+        )
     else:
         cursor.execute(
             "SELECT id, sender_story_id, content, created_at FROM messages WHERE chat_room_id = ? ORDER BY created_at ASC",
@@ -767,19 +770,12 @@ def get_session():
     - 若沒有 token 或 token 不存在，自動產生新的搞笑代號
     - 回傳 { session_token, nickname }
     """
-    # 搞笑代號前綴清單
-    PREFIXES = [
-        "垃圾桶", "廢物", "魯蛇", "衰鬼", "倒楣鬼",
-        "沒救了", "躺平王", "失業中", "被貓嫌", "欠債中"
-    ]
-
     session_token = request.args.get("token")
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     if session_token:
-        # 查詢現有 session
         cursor.execute(
             "SELECT token, nickname FROM sessions WHERE token = ?",
             (session_token,)
@@ -792,11 +788,9 @@ def get_session():
                 "nickname": session["nickname"]
             }), 200
 
-    # 產生新的 session
+    # 產生新的 session，統一呼叫 generate_code_name() 避免重複邏輯
     new_token = uuid.uuid4().hex
-    prefix = random.choice(PREFIXES)
-    number = random.randint(1000, 9999)
-    nickname = f"{prefix} #{number}"
+    nickname = generate_code_name()
 
     cursor.execute(
         "INSERT INTO sessions (token, nickname) VALUES (?, ?)",
@@ -814,42 +808,57 @@ def get_session():
 @app.route("/api/stories/<int:story_id>/owner", methods=["GET"])
 def get_story_owner(story_id):
     """
-    拍拍解鎖後查詢慘事作者的代號
-    回傳作者的匿名代號，讓聊天室顯示「你配對到了：垃圾桶 #XXXX」
-    stories 表沒有 session_token 欄位，直接回傳預設值即可
+    查詢慘事作者的匿名代號（code_name）
+    - 已登入作者：回傳 users.code_name
+    - 未登入作者（user_id 為 NULL）：回傳「神秘衰鬼」
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    # 確認 story 存在
-    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
-    story = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT s.id, u.code_name
+        FROM stories s
+        LEFT JOIN users u ON s.user_id = u.id
+        WHERE s.id = ?
+    """, (story_id,))
+    row = cursor.fetchone()
     conn.close()
 
-    if not story:
+    if not row:
         return jsonify({"message": "慘事不存在"}), 404
 
-    # stories 表未關聯 sessions，回傳預設匿名代號
-    return jsonify({"nickname": "神秘衰鬼"}), 200
+    nickname = row["code_name"] if row["code_name"] else "神秘衰鬼"
+    return jsonify({"nickname": nickname}), 200
 
 
 @app.route("/api/leaderboard", methods=["GET"])
 def get_leaderboard():
     """
     取得慘度排行榜（前 10 名）
-    回傳: { "stories": [{ id, content, vote_count }, ...] }
-    無資料時回傳空陣列
+    以 pat_count + vote_count 的綜合分數排序（更能反映「慘度」）
+    回傳: { "stories": [{ id, content, vote_count, pat_count, score }, ...] }
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, content, vote_count FROM stories ORDER BY vote_count DESC LIMIT 10"
-    )
+    cursor.execute("""
+        SELECT id, content, vote_count, pat_count,
+               (vote_count + pat_count) AS score
+        FROM stories
+        ORDER BY score DESC
+        LIMIT 10
+    """)
     stories = cursor.fetchall()
     conn.close()
 
     return jsonify({
         "stories": [
-            {"id": s["id"], "content": s["content"], "vote_count": s["vote_count"]}
+            {
+                "id": s["id"],
+                "content": s["content"],
+                "vote_count": s["vote_count"],
+                "pat_count": s["pat_count"],
+                "score": s["score"]
+            }
             for s in stories
         ]
     }), 200

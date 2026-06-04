@@ -150,6 +150,11 @@ async function handleVote(votedId, opponentId) {
     showFeedback('網路錯誤，請稍後再試')
     if (btnA) btnA.disabled = false
     if (btnB) btnB.disabled = false
+  } else {
+    // 其他未知錯誤，恢復按鈕避免永久卡住
+    showFeedback('發生未知錯誤，請稍後再試')
+    if (btnA) btnA.disabled = false
+    if (btnB) btnB.disabled = false
   }
 }
 
