@@ -635,17 +635,37 @@ def send_message(chat_room_id):
     # 安全校驗核心：先嘗試用 JWT 驗證，再退回到 story token 檢查
     jwt_payload = verify_jwt(provided_token)
     if jwt_payload:
-        cursor.execute(
-            "SELECT id, user_id FROM stories WHERE id = ?",
-            (sender_story_id,)
-        )
-        sender_story = cursor.fetchone()
+        uid = jwt_payload["user_id"]
+        # 取得此聊天室對應的慘事 ID
+        room_story_id = chat_room["story_id"]
 
-        if not sender_story or sender_story["user_id"] != jwt_payload["user_id"]:
+        # 允許條件（符合其中一項即可）：
+        # 1. 你是慘事作者（user_id 吻合）
+        # 2. 你曾拍拍過這則慘事（pats 表有紀錄）
+        cursor.execute(
+            "SELECT id FROM stories WHERE id = ? AND user_id = ?",
+            (room_story_id, uid)
+        )
+        is_author = cursor.fetchone() is not None
+
+        cursor.execute(
+            "SELECT id FROM pats WHERE story_id = ? AND user_id = ?",
+            (room_story_id, uid)
+        )
+        is_patter = cursor.fetchone() is not None
+
+        if not is_author and not is_patter:
             conn.close()
             return jsonify({
-                "message": "發送者身分驗證失敗，無法發送訊息"
+                "message": "發送者身分驗證失敗，你與此聊天室無關"
             }), 403
+
+        # sender_story_id 需存在（用於顯示訊息歸屬），但允許是任何真實存在的慘事
+        # 若使用者沒有自己的慘事，使用聊天室對應的慘事 ID 作為替代
+        cursor.execute("SELECT id FROM stories WHERE id = ?", (sender_story_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"message": "sender_story_id 不存在"}), 404
     else:
         cursor.execute(
             "SELECT id FROM stories WHERE id = ? AND token = ?",

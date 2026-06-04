@@ -69,8 +69,10 @@ export const chat = {
     chatState.isSending = false;
     chatState.otherNickname = '對方衰鬼';
 
-    const hasTokenForThisStory = localStorage.getItem(`story_token_${storyId}`) !== null;
-    chatState.storyId = hasTokenForThisStory ? storyId : (localStorage.getItem('my_last_story_id') || storyId);
+    // storyId 是被拍的慘事 ID
+    // 若我有這則慘事的 story_token → 我是作者，用這個 storyId 發訊息
+    // 若沒有 story_token → 我是拍拍者，也用這個 storyId（後端會查 pats 表驗證）
+    chatState.storyId = storyId;
 
     const chatInput = document.getElementById('chat-input');
     if (chatInput) chatInput.value = '';
@@ -166,17 +168,16 @@ export const chat = {
     if (sendBtn) sendBtn.disabled = true;
 
     try {
-      // 核心安全處理：動態撈取專屬這篇慘事的 UUID token，避免與註冊帳號的 JWT 混淆撞車
+      // 優先使用這則慘事的 story_token（作者身份）
+      // 若沒有 story_token，代表是拍拍者，讓 fetchClient 自動帶 JWT（已登入情況）
       const specificStoryToken = localStorage.getItem(`story_token_${chatState.storyId}`);
-      
-      // 如果有找到對應發文的專屬 UUID Token，傳遞給 FetchClient 去覆蓋 Authorization
-      const options = specificStoryToken 
-        ? { headers: { 'Authorization': `Bearer ${specificStoryToken}` } } 
-        : {};
+      const options = specificStoryToken
+        ? { headers: { 'Authorization': `Bearer ${specificStoryToken}` } }
+        : {}; // 無 story_token：交給 fetchClient 的全域攔截自動帶 JWT
 
       const result = await fetchClient.sendMessage(
-        chatState.chatRoomId, 
-        chatState.storyId, 
+        chatState.chatRoomId,
+        chatState.storyId,
         trimmed,
         options
       );
@@ -187,7 +188,8 @@ export const chat = {
         chatState.lastFetchedAt = result.data.created_at;
         this.renderMessages();
       } else {
-        alert(result.data?.message || '訊息發送失敗，你可能不是這篇慘事的作者喔！');
+        const msg = result.data?.message || '訊息發送失敗，請稍後再試';
+        alert(msg);
       }
     } catch (error) {
       console.error('Send message error:', error);
