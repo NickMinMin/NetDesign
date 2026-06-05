@@ -39,7 +39,7 @@ export function calculatePercentages(countA, countB) {
   if (total === 0) {
     return { pctA: 50, pctB: 50 }
   }
-  const pctA = Math.round(countA / total * 100)
+  const pctA = Math.round((countA / total) * 100)
   const pctB = 100 - pctA
   return { pctA, pctB }
 }
@@ -57,7 +57,7 @@ function showResults(pctA, pctB) {
   const btnA = getEl('vote-btn-a')
   const btnB = getEl('vote-btn-b')
 
-  // 設定進度條 CSS 變數（進度條在 .vote-bar-track 內）
+  // 設定進度條 CSS 變數
   const barA = resultsEl?.querySelector('[data-bar="a"]')
   const barB = resultsEl?.querySelector('[data-bar="b"]')
   if (barA) barA.style.setProperty('--pct', pctA + '%')
@@ -72,7 +72,7 @@ function showResults(pctA, pctB) {
   // 顯示結果區塊
   if (resultsEl) resultsEl.removeAttribute('hidden')
 
-  // 隱藏投票按鈕（整個 .vote-card__actions）
+  // 隱藏投票按鈕
   if (btnA) btnA.setAttribute('hidden', '')
   if (btnB) btnB.setAttribute('hidden', '')
 
@@ -101,8 +101,14 @@ function renderPair(a, b) {
   if (cardB) cardB.textContent = b.content
 
   // 顯示投票按鈕
-  if (btnA) btnA.removeAttribute('hidden')
-  if (btnB) btnB.removeAttribute('hidden')
+  if (btnA) {
+    btnA.removeAttribute('hidden')
+    btnA.disabled = false
+  }
+  if (btnB) {
+    btnB.removeAttribute('hidden')
+    btnB.disabled = false
+  }
 
   // 隱藏百分比區塊與「換一組」按鈕
   if (resultsEl) resultsEl.setAttribute('hidden', '')
@@ -115,15 +121,16 @@ function renderPair(a, b) {
 
 /**
  * 處理投票按鈕點擊
- * @param {number} votedId  被投票的 Story id
- * @param {number} opponentId  對手的 Story id
+ * @param {number} votedId 被投票的 Story id
+ * @param {number} opponentId 對手的 Story id
  */
 async function handleVote(votedId, opponentId) {
   if (!auth.requireLogin()) return
 
-  // 停用兩個按鈕，避免重複點擊
   const btnA = getEl('vote-btn-a')
   const btnB = getEl('vote-btn-b')
+
+  // 停用兩個按鈕，避免重複點擊
   if (btnA) btnA.disabled = true
   if (btnB) btnB.disabled = true
 
@@ -135,11 +142,8 @@ async function handleVote(votedId, opponentId) {
     const countB = counts[String(storyB.id)] ?? 0
     const { pctA, pctB } = calculatePercentages(countA, countB)
     showResults(pctA, pctB)
-    // showResults 已隱藏按鈕，不需要恢復
   } else if (result.status === 409) {
-    // 已投過：顯示訊息並直接顯示目前比例（若有資料）
     showFeedback('你已經對這組對決投過票了，換一組吧 👇')
-    // 恢復按鈕讓使用者可以換一組
     if (btnA) btnA.disabled = false
     if (btnB) btnB.disabled = false
   } else if (result.status === 401) {
@@ -151,7 +155,6 @@ async function handleVote(votedId, opponentId) {
     if (btnA) btnA.disabled = false
     if (btnB) btnB.disabled = false
   } else {
-    // 其他未知錯誤，恢復按鈕避免永久卡住
     showFeedback('發生未知錯誤，請稍後再試')
     if (btnA) btnA.disabled = false
     if (btnB) btnB.disabled = false
@@ -166,14 +169,18 @@ async function loadPair() {
   const result = await fetchClient.getRandomPair()
 
   if (!result.ok) {
-    // 慘事不足或其他錯誤
     showFeedback('目前慘事不足，快去投稿吧！')
 
-    // 隱藏投票按鈕
     const btnA = getEl('vote-btn-a')
     const btnB = getEl('vote-btn-b')
-    if (btnA) btnA.setAttribute('hidden', '')
-    if (btnB) btnB.setAttribute('hidden', '')
+    if (btnA) {
+      btnA.setAttribute('hidden', '')
+      btnA.disabled = true
+    }
+    if (btnB) {
+      btnB.setAttribute('hidden', '')
+      btnB.disabled = true
+    }
     return
   }
 
