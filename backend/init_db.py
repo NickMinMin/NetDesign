@@ -22,8 +22,6 @@ def init_db():
     """)
 
     # 拍拍紀錄資料表
-    # UNIQUE(story_id, ip_hash) 可防止同 IP 重複拍拍
-    # 目前以 story_id + session_token 為唯一鍵（未登入用 session，已登入用 user_id）
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS pats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,9 +58,6 @@ def init_db():
     """)
 
     # 使用者帳號資料表
-    # nickname: 真實暱稱（拍拍解鎖後才顯示）
-    # code_name: 隨機搞笑代號（垃圾桶 #XXXX，平時顯示）
-    # password_hash: bcrypt 加密後的密碼
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +68,7 @@ def init_db():
     )
     """)
 
-    # 匿名 session 資料表（未登入用戶）
+    # 匿名 session 資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +78,7 @@ def init_db():
     )
     """)
 
-    # 投票紀錄資料表
+    # 舊投票表先保留，不刪，避免舊功能炸掉
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS votes (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,14 +94,42 @@ def init_db():
     # 公開留言資料表
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS comments (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        story_id   INTEGER NOT NULL,
-        user_id    INTEGER,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        story_id INTEGER NOT NULL,
+        user_id INTEGER,
         session_token TEXT,
-        content    TEXT NOT NULL,
+        content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (story_id) REFERENCES stories(id),
-        FOREIGN KEY (user_id)  REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+    """)
+
+    # ===== 新增：對決配對表 =====
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS vote_pairs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        story_a_id INTEGER NOT NULL,
+        story_b_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (story_a_id) REFERENCES stories(id),
+        FOREIGN KEY (story_b_id) REFERENCES stories(id)
+    )
+    """)
+
+    # ===== 新增：對決投票表 =====
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pair_votes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pair_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        voted_story_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pair_id) REFERENCES vote_pairs(id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (voted_story_id) REFERENCES stories(id),
+        UNIQUE (pair_id, user_id)
     )
     """)
 
@@ -134,6 +157,16 @@ def init_db():
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS idx_comments_story_id
     ON comments(story_id)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_vote_pairs_created_at
+    ON vote_pairs(created_at)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_pair_votes_pair_id
+    ON pair_votes(pair_id)
     """)
 
     conn.commit()
