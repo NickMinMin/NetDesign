@@ -4,23 +4,58 @@
 
 一個零門檻的匿名「比慘」交友平台，透過幽默與自嘲取代傳統交友 App 的外貌焦慮。
 
+---
+
+## 目錄
+
+- [專案簡介](#專案簡介)
+- [核心功能](#核心功能)
+- [技術架構](#技術架構)
+- [快速開始](#快速開始)
+- [功能說明](#功能說明)
+- [API 文件](#api-文件)
+- [資料庫結構](#資料庫結構)
+- [專案結構](#專案結構)
+- [測試](#測試)
+- [搞笑文案列表](#搞笑文案列表)
+- [未來規劃](#未來規劃)
+
+---
+
 ## 專案簡介
 
-「魯蛇回收站」讓使用者透過分享生活中的挫折與窘境，與有共鳴的人建立連結。當你的慘事累積 3 個「拍拍」時，系統會自動解鎖聊天室，讓你與同樣「沒救」的人開始對話。
+「魯蛇回收站」讓使用者透過分享生活中的挫折與窘境，與有共鳴的人建立連結。當你的慘事累積拍拍後，系統會自動解鎖聊天室，讓你與同樣「沒救」的人開始對話。支援帳號系統與完全匿名模式並行，讓使用者自由選擇身份。
 
-### 核心功能
+---
 
-- **匿名投稿慘事**：無需註冊，直接分享你的挫折與窘境
-- **隨機推播慘事**：瀏覽其他人的慘事，感受「原來不只我慘」的共鳴
-- **拍拍互動**：對有共鳴的慘事給予「拍拍」，表達同情與支持
-- **解鎖聊天室**：累積 3 個拍拍後自動解鎖，開啟即時對話
-- **即時訊息交流**：透過輪詢機制與配對成功的人聊天
+## 核心功能
 
-### 技術架構
+| 功能 | 說明 |
+|------|------|
+| **匿名 / 帳號雙模式** | 無需註冊即可投稿，也可用帳號登入以保留投稿紀錄 |
+| **投稿慘事** | 依分類（愛情慘劇 / 職場地獄 / 考試爆炸 / 家庭悲劇 / 其他衰事）投稿 |
+| **隨機瀏覽** | 隨機推播慘事，可依分類過濾 |
+| **拍拍互動** | 對慘事按拍拍，達門檻後自動解鎖聊天室 |
+| **比慘對決** | 兩則慘事 PK，投票選出「更慘」的那則 |
+| **聊天室** | 拍拍解鎖後開啟私人聊天，輪詢式即時更新 |
+| **公開留言** | 任何人都可以對慘事發表公開留言 |
+| **慘度排行榜** | 依拍拍數 + 對決得票數綜合排名，前 10 名公開展示 |
+| **個人頁面** | 登入後查看自己的投稿紀錄 |
 
-- **前端**：HTML/CSS/JavaScript（Vanilla JS，ES6 模組）
-- **後端**：Python Flask + SQLite
-- **通訊機制**：RESTful API + 輪詢（3 秒間隔）
+---
+
+## 技術架構
+
+| 層級 | 技術 |
+|------|------|
+| 前端 | HTML / CSS / Vanilla JavaScript（ES6 模組） |
+| 後端 | Python 3.8+ / Flask / Flask-CORS |
+| 資料庫 | SQLite（`loser.db`） |
+| 認證 | JWT（PyJWT，有效期 30 天）+ bcrypt 密碼雜湊 |
+| 通訊 | RESTful API + 長輪詢（3 秒間隔） |
+| 測試 | pytest（後端）/ Playwright（前端 E2E） |
+
+---
 
 ## 快速開始
 
@@ -43,10 +78,13 @@
    pip install -r requirements.txt
    ```
 
+   依賴套件：`Flask`、`flask-cors`、`bcrypt`、`PyJWT`
+
 3. **初始化資料庫**
    ```bash
    python init_db.py
    ```
+   > 若資料庫已存在，`app.py` 啟動時會自動執行 migration，補齊缺少的欄位。
 
 4. **啟動後端伺服器**
    ```bash
@@ -55,446 +93,242 @@
    伺服器將在 `http://localhost:5000` 啟動
 
 5. **開啟前端**
-   - 使用瀏覽器開啟 `frontend/index.html`
-   - 或使用本地伺服器（推薦）：
-     ```bash
-     cd frontend
-     python -m http.server 8000
-     ```
-     前端將在 `http://localhost:8000` 啟動
+
+   直接用瀏覽器開啟根目錄的 `index.html`，或使用本地伺服器：
+   ```bash
+   # 在專案根目錄執行
+   python -m http.server 8000
+   ```
+   前端將在 `http://localhost:8000` 啟動
+
+---
 
 ## 功能說明
 
-### 1. 投稿慘事
+### 1. 帳號系統
 
-使用者可以匿名投稿生活中的挫折與窘境，無需註冊或登入。
+系統採**雙身份設計**：已登入使用者（JWT）與匿名訪客（session token）可並行使用所有功能。
 
-**使用方式**：
-1. 點擊「📝 投稿」按鈕
-2. 輸入你的慘事（1-500 字元）
-3. 點擊「送出」
-4. 系統顯示：「你的慘事已送達垃圾桶，等待有緣衰鬼」
+- **註冊**：設定登入暱稱與密碼，系統隨機分配搞笑代號（如「垃圾桶 #4521」）
+- **真實暱稱隱藏**：對其他人只顯示搞笑代號，保護真實身份
+- **匿名模式**：未登入時系統自動建立 session，並分配臨時匿名代號
 
-### 2. 瀏覽慘事
+### 2. 投稿慘事
 
-系統會隨機推播其他使用者的慘事，讓你感受「原來不只我慘」的共鳴。
+無需登入即可投稿，支援依分類整理：
 
-**使用方式**：
-1. 在首頁點擊「再看一個慘的」
-2. 系統隨機顯示一則慘事
-3. 可以選擇「拍拍 TA」表達支持
+- **使用方式**：點擊「📝 投稿」→ 輸入慘事（最多 500 字）→ 選擇分類 → 送出
+- 投稿後系統回傳 `token`，作為後續聊天室發訊的身份憑證（請妥善保存）
 
-### 3. 拍拍互動
+### 3. 瀏覽 / 拍拍
 
-對有共鳴的慘事給予「拍拍」，表達同情與支持。當慘事累積 3 個拍拍時，會自動解鎖聊天室。
+- 系統隨機推播慘事，可過濾分類
+- 對有共鳴的慘事按「拍拍 TA」，達到門檻後自動解鎖聊天室
+- 每位使用者對同一則慘事只能拍一次（登入或 session 去重）
 
-**使用方式**：
-1. 瀏覽慘事時，點擊「拍拍 TA」按鈕
-2. 系統顯示：「拍拍成功！你的同情已送達」
-3. 當慘事累積 3 個拍拍時，系統自動解鎖聊天室
+### 4. 比慘對決
 
-### 4. 聊天室功能
+- 進入「**比慘對決**」頁面，系統隨機配出兩則慘事 PK
+- 登入後投票選出「更慘」的那則
+- 投票結果即時顯示雙方票數
+- 對決得票數計入排行榜總分
 
-當慘事累積 3 個拍拍後，系統會自動解鎖聊天室，讓你與配對成功的人開始對話。
+### 5. 聊天室
 
-**功能特色**：
-- **自動解鎖**：第 3 個拍拍後，聊天室面板自動從右側滑入
-- **即時更新**：每 3 秒自動輪詢新訊息，無需手動重新整理
-- **訊息驗證**：訊息長度限制 1-500 字元，防止空白或過長訊息
-- **持久化**：關閉聊天室後，訊息歷史會保留，可隨時重新開啟
+- 拍拍達到門檻後聊天室自動解鎖，從右側滑入
+- 每 3 秒輪詢新訊息，無需手動重新整理
+- 訊息長度限制 1–500 字元
+- 聊天室與慘事一對一綁定（`chat_rooms.story_id UNIQUE`）
 
-**使用方式**：
-1. 當慘事累積 3 個拍拍時，聊天室自動開啟
-2. 系統顯示：「💘 配對成功！你們都沒救了」
-3. 在輸入框輸入訊息，點擊「送出」
-4. 訊息會即時顯示在聊天室中
-5. 點擊右上角「✕」關閉聊天室
+### 6. 公開留言
+
+- 任何人（登入或匿名）都可以對慘事留下公開留言
+- 每則留言最多 200 字，每次最多顯示 50 則
+
+### 7. 慘度排行榜
+
+計分公式：
+```
+score = 對決總得票數（pair_votes）+ 拍拍數（pat_count）
+```
+前 10 名公開顯示，分類展示 `vote_count`、`pat_count`、`score`。
+
+---
 
 ## API 文件
 
-### 基本資訊
+詳細 API 說明請參考 [MD/API_DESIGN.md](MD/API_DESIGN.md)。
 
-- **Base URL**: `http://localhost:5000`
-- **Content-Type**: `application/json`
-- **CORS**: 已啟用
+### 端點快速索引
 
-### 端點列表
+| 方法 | 路徑 | 說明 | 認證 |
+|------|------|------|------|
+| POST | `/api/register` | 註冊帳號 | 否 |
+| POST | `/api/login` | 登入 | 否 |
+| GET | `/api/me` | 取得目前使用者 | JWT |
+| GET | `/api/session` | 取得 / 建立匿名 session | 否 |
+| POST | `/api/stories` | 投稿慘事 | 否（選填 JWT） |
+| GET | `/api/stories/random` | 取得隨機慘事 | 否 |
+| GET | `/api/stories/random-pair` | 取得隨機對決組 | 否 |
+| PUT | `/api/stories/:id/pat` | 拍拍慘事 | 否（選填 JWT） |
+| GET | `/api/stories/:id/owner` | 取得作者代號 | 否 |
+| GET | `/api/stories/:id/comments` | 取得留言列表 | 否 |
+| POST | `/api/stories/:id/comments` | 新增留言 | 否（選填 JWT） |
+| POST | `/api/vote-pairs/:id/vote` | 對決投票 | **JWT 必填** |
+| GET | `/api/vote-pairs/:id/results` | 取得對決票數 | 否 |
+| POST | `/api/chat-rooms` | 建立聊天室 | 否 |
+| GET | `/api/chat-rooms/:id/messages` | 取得聊天室訊息 | 否 |
+| POST | `/api/chat-rooms/:id/messages` | 發送訊息 | story_token 或 JWT |
+| GET | `/api/leaderboard` | 排行榜前 10 名 | 否 |
 
-#### 1. 建立慘事
+### 認證說明
 
-建立一則新的慘事投稿。
-
-```http
-POST /api/stories
-Content-Type: application/json
-
-{
-  "content": "今天被老闆罵了"
-}
-```
-
-**回應**：
-```json
-{
-  "id": 1,
-  "content": "今天被老闆罵了",
-  "pat_count": 0
-}
-```
-
-**狀態碼**：
-- `201 Created`: 成功建立
-- `400 Bad Request`: 內容為空或格式錯誤
+| 身份 | 認證方式 |
+|------|----------|
+| 登入使用者 | `Authorization: Bearer <JWT>` |
+| 匿名投稿者 | `Authorization: Bearer <story_token>`（投稿時回傳） |
+| 匿名訪客 | Request Body `session_token`（由 `GET /api/session` 取得） |
 
 ---
-
-#### 2. 取得隨機慘事
-
-隨機取得一則慘事。
-
-```http
-GET /api/stories/random
-```
-
-**回應**：
-```json
-{
-  "id": 1,
-  "content": "今天被老闆罵了",
-  "pat_count": 2
-}
-```
-
-**狀態碼**：
-- `200 OK`: 成功取得
-- `404 Not Found`: 目前沒有慘事
-
----
-
-#### 3. 拍拍慘事
-
-對指定慘事給予「拍拍」，當累積 3 個拍拍時會自動解鎖聊天室。
-
-```http
-PUT /api/stories/{story_id}/pat
-```
-
-**回應**（未解鎖）：
-```json
-{
-  "pat_count": 2,
-  "match_unlocked": false
-}
-```
-
-**回應**（已解鎖）：
-```json
-{
-  "pat_count": 3,
-  "match_unlocked": true,
-  "chat_room_id": 42
-}
-```
-
-**狀態碼**：
-- `200 OK`: 成功拍拍
-- `404 Not Found`: 慘事不存在
-
----
-
-#### 4. 建立聊天室
-
-為指定慘事建立聊天室（需 pat_count >= 3）。
-
-```http
-POST /api/chat-rooms
-Content-Type: application/json
-
-{
-  "story_id": 1
-}
-```
-
-**回應**：
-```json
-{
-  "chat_room_id": 42,
-  "created_at": "2025-01-15T10:30:00Z"
-}
-```
-
-**狀態碼**：
-- `201 Created`: 成功建立
-- `200 OK`: 聊天室已存在（冪等性）
-- `400 Bad Request`: 拍拍數不足
-- `404 Not Found`: 慘事不存在
-
----
-
-#### 5. 取得聊天室訊息
-
-取得指定聊天室的所有訊息，可選擇性過濾時間。
-
-```http
-GET /api/chat-rooms/{chat_room_id}/messages?since=2025-01-15T10:30:00Z
-```
-
-**查詢參數**：
-- `since` (可選): ISO 8601 時間戳，只回傳此時間之後的訊息
-
-**回應**：
-```json
-{
-  "messages": [
-    {
-      "id": 1,
-      "sender_story_id": 123,
-      "content": "你也很慘嗎？",
-      "created_at": "2025-01-15T10:31:00Z"
-    },
-    {
-      "id": 2,
-      "sender_story_id": 456,
-      "content": "對啊，我們都沒救了",
-      "created_at": "2025-01-15T10:31:30Z"
-    }
-  ]
-}
-```
-
-**狀態碼**：
-- `200 OK`: 成功取得
-- `400 Bad Request`: since 參數格式錯誤
-- `404 Not Found`: 聊天室不存在
-
----
-
-#### 6. 發送訊息
-
-在指定聊天室發送訊息。
-
-```http
-POST /api/chat-rooms/{chat_room_id}/messages
-Content-Type: application/json
-
-{
-  "sender_story_id": 123,
-  "content": "我們一起加油吧"
-}
-```
-
-**回應**：
-```json
-{
-  "id": 3,
-  "sender_story_id": 123,
-  "content": "我們一起加油吧",
-  "created_at": "2025-01-15T10:32:00Z"
-}
-```
-
-**狀態碼**：
-- `201 Created`: 成功發送
-- `400 Bad Request`: 內容為空或超過 500 字元
-- `403 Forbidden`: 發送者不存在
-- `404 Not Found`: 聊天室不存在
-- `500 Internal Server Error`: 伺服器錯誤
-
----
-
-### 錯誤處理
-
-所有錯誤回應均包含 `message` 欄位，提供友善的錯誤訊息：
-
-```json
-{
-  "message": "訊息不可為空白"
-}
-```
 
 ## 資料庫結構
 
-### stories 表
+詳細設計與正規化分析請參考 [MD/DATABASE_DESIGN.md](MD/DATABASE_DESIGN.md)。
 
-儲存使用者投稿的慘事。
+### 資料表總覽
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | INTEGER | 主鍵，自動遞增 |
-| content | TEXT | 慘事內容 |
-| pat_count | INTEGER | 拍拍數，預設 0 |
-| created_at | TIMESTAMP | 建立時間 |
+| 資料表 | 說明 |
+|--------|------|
+| `users` | 已註冊使用者帳號，含 bcrypt 密碼雜湊與搞笑代號 |
+| `sessions` | 匿名訪客的 session token 與臨時暱稱 |
+| `stories` | 慘事主體，含分類、拍拍快取、匿名 token |
+| `pats` | 拍拍行為紀錄，支援登入使用者與匿名訪客 |
+| `vote_pairs` | 比慘對決配對，每次 random-pair 產生一筆 |
+| `pair_votes` | 對決投票紀錄，每人每對決限投一票 |
+| `chat_rooms` | 解鎖的聊天室，與慘事 1:1 關聯 |
+| `messages` | 聊天室訊息 |
+| `comments` | 慘事公開留言 |
+| `votes` | 舊版投票表（保留相容，已不主動使用） |
 
-### pats 表
+### 正規化摘要
 
-記錄拍拍互動歷史。
+- **1NF / 2NF / 3NF**：所有資料表均符合，單一主鍵避免部分/傳遞函數相依
+- **BCNF**：`votes`、`pair_votes`、`chat_rooms` 的複合唯一約束均形成候選鍵
+- **反正規化例外**：`stories.pat_count` 為快取欄位，以加速排行榜排序；`stories.vote_count` 為舊版保留欄位
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | INTEGER | 主鍵，自動遞增 |
-| story_id | INTEGER | 外鍵，關聯 stories.id |
-| created_at | TIMESTAMP | 拍拍時間 |
+---
 
-### chat_rooms 表
-
-儲存解鎖的聊天室。
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | INTEGER | 主鍵，自動遞增 |
-| story_id | INTEGER | 外鍵，關聯 stories.id（UNIQUE） |
-| created_at | TIMESTAMP | 建立時間 |
-
-### messages 表
-
-儲存聊天室訊息。
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | INTEGER | 主鍵，自動遞增 |
-| chat_room_id | INTEGER | 外鍵，關聯 chat_rooms.id |
-| sender_story_id | INTEGER | 外鍵，關聯 stories.id |
-| content | TEXT | 訊息內容 |
-| created_at | TIMESTAMP | 發送時間 |
-
-**索引**：
-- `idx_messages_chat_room_created` (chat_room_id, created_at)：加速訊息查詢
-
-## 開發指南
-
-### 專案結構
+## 專案結構
 
 ```
 NetDesign/
 ├── backend/
-│   ├── app.py                 # Flask 應用程式主檔案
-│   ├── init_db.py             # 資料庫初始化腳本
-│   ├── requirements.txt       # Python 依賴套件
-│   ├── loser.db               # SQLite 資料庫檔案
-│   └── test_*.py              # 單元測試與整合測試
-├── frontend/
-│   ├── index.html             # 主頁面
-│   ├── css/
-│   │   ├── base.css           # 基礎樣式
-│   │   ├── components.css     # 組件樣式
-│   │   ├── pages.css          # 頁面樣式
-│   │   └── chat.css           # 聊天室樣式
-│   └── js/
-│       ├── main.js            # 應用程式入口
-│       ├── router.js          # 路由管理
-│       ├── feed.js            # Feed 頁邏輯
-│       ├── post.js            # 投稿頁邏輯
-│       ├── chat.js            # 聊天室邏輯
-│       ├── renderer.js        # UI 渲染
-│       └── fetchClient.js     # API 呼叫封裝
-├── README.md                  # 專案說明文件
-└── EXPECTED_OUTCOMES.md       # 預期成果文件
+│   ├── app.py                 # Flask 主應用程式（API 路由、JWT、migration）
+│   ├── init_db.py             # 資料庫初始化腳本（建表、索引）
+│   ├── requirements.txt       # Python 依賴（Flask, flask-cors, bcrypt, PyJWT）
+│   ├── loser.db               # SQLite 資料庫檔案（gitignore 可視情況加入）
+│   └── test_*.py              # 單元測試與整合測試（pytest）
+├── css/
+│   ├── base.css               # 全域基礎樣式、CSS 變數
+│   ├── components.css         # 可複用元件樣式（按鈕、卡片等）
+│   ├── pages.css              # 各頁面專屬樣式
+│   └── chat.css               # 聊天室面板樣式
+├── js/
+│   ├── main.js                # 應用程式進入點，初始化所有模組
+│   ├── router.js              # Hash 路由（#cover / #feed / #post / #vote / #leaderboard / #profile）
+│   ├── auth.js                # 帳號登入 / 註冊 / 登出
+│   ├── session.js             # 匿名 session 管理
+│   ├── feed.js                # 慘事瀏覽頁邏輯
+│   ├── post.js                # 慘事投稿頁邏輯
+│   ├── vote.js                # 比慘對決頁邏輯
+│   ├── leaderboard.js         # 慘度排行榜邏輯
+│   ├── chat.js                # 聊天室面板邏輯（輪詢）
+│   ├── comments.js            # 公開留言邏輯
+│   ├── profile.js             # 個人頁面邏輯
+│   ├── renderer.js            # UI 渲染工具函式
+│   ├── fetchClient.js         # API 請求封裝（含 JWT header）
+│   └── *.test.js              # 各模組的單元測試（Playwright）
+├── MD/
+│   ├── DATABASE_DESIGN.md     # 資料庫設計文件（含正規化分析）
+│   ├── API_DESIGN.md          # REST API 設計文件
+│   └── ...                    # 其他測試報告與實作摘要
+├── index.html                 # 單頁應用程式主檔案（SPA）
+└── README.md                  # 本文件
 ```
 
-### 擴展聊天室功能
+---
 
-如果你想擴展聊天室功能，以下是一些建議：
+## 測試
 
-#### 1. 新增訊息類型
-
-目前只支援純文字訊息，你可以擴展為支援圖片、貼圖、表情符號等。
-
-**步驟**：
-1. 修改 `messages` 表，新增 `message_type` 欄位（如 'text', 'image', 'sticker'）
-2. 修改 `POST /api/chat-rooms/{id}/messages` 端點，支援不同類型的訊息
-3. 修改前端 `renderer.js`，根據訊息類型渲染不同的 UI
-
-#### 2. 新增已讀/未讀狀態
-
-讓使用者知道對方是否已讀訊息。
-
-**步驟**：
-1. 修改 `messages` 表，新增 `is_read` 欄位（預設 false）
-2. 新增 `PUT /api/chat-rooms/{id}/messages/{message_id}/read` 端點，標記訊息為已讀
-3. 修改前端輪詢邏輯，自動標記已讀
-4. 修改前端 UI，顯示已讀/未讀狀態
-
-#### 3. 升級為 WebSocket
-
-目前使用輪詢機制（每 3 秒更新），可升級為 WebSocket 實現真正的即時通訊。
-
-**步驟**：
-1. 安裝 Flask-SocketIO：`pip install flask-socketio`
-2. 修改 `app.py`，引入 SocketIO
-3. 修改前端 `chat.js`，使用 WebSocket 連線取代輪詢
-4. 實作「對方正在輸入…」提示
-
-#### 4. 新增多人聊天室
-
-目前一個慘事對應一個聊天室，可擴展為多對多關係。
-
-**步驟**：
-1. 新增 `chat_room_members` 表，記錄聊天室成員
-2. 修改 `chat_rooms` 表，移除 `story_id` 的 UNIQUE 約束
-3. 修改配對邏輯，支援多人配對
-4. 修改前端 UI，顯示聊天室成員列表
-
-### 測試
-
-#### 執行單元測試
+### 後端（pytest）
 
 ```bash
 cd backend
-pytest test_*.py
+pytest test_*.py -v
 ```
 
-#### 執行整合測試
+### 前端 E2E（Playwright）
 
 ```bash
-cd backend
-pytest test_integration_*.py
+cd frontend
+npx playwright test
 ```
 
-#### 手動測試
+### 手動測試流程
 
-1. 啟動後端伺服器
-2. 開啟兩個瀏覽器視窗
-3. 在第一個視窗投稿慘事
-4. 在第二個視窗拍拍該慘事 3 次
-5. 驗證聊天室是否自動開啟
-6. 在兩個視窗互相發送訊息，驗證輪詢機制
+1. 啟動後端 `python app.py`
+2. 用兩個瀏覽器分頁開啟前端
+3. 在分頁 A 投稿一則慘事，取得回傳的 `token`
+4. 在分頁 B 對該慘事拍拍，達到門檻後確認聊天室自動解鎖
+5. 分別在兩個分頁發送訊息，確認 3 秒輪詢正常接收
+6. 測試比慘對決：進入 `#vote` 頁面，登入後投票，確認票數即時更新
+7. 進入 `#leaderboard` 確認排行榜分數計算正確
+
+---
 
 ## 搞笑文案列表
 
-「魯蛇回收站」的核心特色之一是幽默與自嘲的文案風格。以下是系統中使用的搞笑文案：
-
 | 場景 | 文案 |
 |------|------|
-| 404 頁面 | 「你的運氣跟這個網頁一樣，都不存在」 |
 | 配對成功 | 「💘 配對成功！你們都沒救了」 |
 | 聊天室空狀態 | 「你們都沒救了，不如聊聊吧 💬✨」 |
 | 投稿成功 | 「你的慘事已送達垃圾桶，等待有緣衰鬼」 |
-| 載入中 | 「載入中… 🗑️」 |
-| 無慘事 | 「目前沒有慘事，快去投稿吧！」 |
 | 拍拍失敗 | 「拍拍失敗，請稍後再試」 |
+| 無慘事 | 「目前沒有慘事，快去投稿吧！」 |
+| 404 頁面 | 「你的運氣跟這個網頁一樣，都不存在」 |
 | 訊息失敗 | 「訊息送出失敗，你的話語迷失在虛空中」 |
 | 聊天室載入失敗 | 「聊天室載入失敗，連系統都放棄你了」 |
+| 登入搞笑代號 | 系統從「垃圾桶、廢物、魯蛇、衰鬼、倒楣鬼、沒救了、躺平王、失業中、被貓嫌、欠債中」隨機搭配四位數字 |
+
+---
 
 ## 未來規劃
 
-- [ ] 引入 WebSocket 實現真正的即時通訊
-- [ ] 新增智慧配對演算法（基於 NLP 分析慨事內容）
-- [ ] 新增使用者認證系統（可選的 Email/Google 登入）
-- [ ] 新增慘事排行榜（最慘、最搞笑、最多拍拍）
-- [ ] 新增主題標籤系統（#職場 #感情 #生活）
-- [ ] 新增評論功能
-- [ ] 新增分享功能（分享到社群平台）
-- [ ] 引入 React 或 Vue.js 重構前端
+- [ ] 引入 WebSocket 取代輪詢，實現真正即時通訊
+- [ ] 新增智慧配對演算法（基於 NLP 分析慘事內容相似度）
+- [ ] 主題標籤系統（`#職場` `#感情` `#生活`）
+- [ ] 慘事分享功能（複製連結 / 社群平台）
+- [ ] 前端框架重構（React 或 Vue.js）
 - [ ] 資料庫升級至 PostgreSQL
-- [ ] 雲端部署（AWS/GCP/Azure）
+- [ ] 雲端部署（AWS / GCP / Azure）
+- [ ] 慘事圖片附件支援
+- [ ] 訊息已讀回執
+
+---
+
+## 相關文件
+
+| 文件 | 說明 |
+|------|------|
+| [MD/DATABASE_DESIGN.md](MD/DATABASE_DESIGN.md) | 完整資料庫設計、ER 圖、正規化分析 |
+| [MD/API_DESIGN.md](MD/API_DESIGN.md) | REST API 端點規格、Request/Response 範例 |
+| [MD/DEVELOPER_GUIDE.md](MD/DEVELOPER_GUIDE.md) | 開發環境設定與貢獻指南 |
+
+---
 
 ## 授權
 
 本專案為教育用途，未指定授權。
-
-## 聯絡方式
-
-如有問題或建議，歡迎提交 Issue 或 Pull Request。
 
 ---
 
