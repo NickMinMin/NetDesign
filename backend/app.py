@@ -25,14 +25,12 @@ CODE_NAME_PREFIXES = [
 
 
 def generate_code_name():
-    """產生隨機搞笑代號，例如「垃圾桶 #4521」"""
     prefix = random.choice(CODE_NAME_PREFIXES)
     number = random.randint(1000, 9999)
     return f"{prefix} #{number}"
 
 
 def generate_jwt(user_id, nickname, code_name):
-    """產生 JWT token"""
     payload = {
         "user_id": user_id,
         "nickname": nickname,
@@ -43,7 +41,6 @@ def generate_jwt(user_id, nickname, code_name):
 
 
 def verify_jwt(token):
-    """驗證 JWT token，回傳 payload 或 None"""
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
     except Exception:
@@ -51,7 +48,6 @@ def verify_jwt(token):
 
 
 def get_current_user():
-    """從 Authorization header 取得目前登入的使用者資訊"""
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
@@ -59,47 +55,41 @@ def get_current_user():
     return verify_jwt(token)
 
 
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def migrate_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
-        # 檢查 stories 表是否有 token 欄位
+        # stories 表補欄位
         cursor.execute("PRAGMA table_info(stories)")
         columns = [column[1] for column in cursor.fetchall()]
+
         if 'token' not in columns:
             print("Migration: Adding token column to stories table...")
             cursor.execute("ALTER TABLE stories ADD COLUMN token TEXT NOT NULL DEFAULT ''")
             conn.commit()
-            print("Migration: token column added successfully.")
 
-        # stories 表新增 vote_count
-        cursor.execute("PRAGMA table_info(stories)")
-        columns = [column[1] for column in cursor.fetchall()]
         if 'vote_count' not in columns:
             print("Migration: Adding vote_count column to stories table...")
             cursor.execute("ALTER TABLE stories ADD COLUMN vote_count INTEGER NOT NULL DEFAULT 0")
             conn.commit()
-            print("Migration: vote_count column added successfully.")
 
-        # stories 表新增 user_id
-        cursor.execute("PRAGMA table_info(stories)")
-        columns = [column[1] for column in cursor.fetchall()]
         if 'user_id' not in columns:
             print("Migration: Adding user_id column to stories table...")
             cursor.execute("ALTER TABLE stories ADD COLUMN user_id INTEGER")
             conn.commit()
-            print("Migration: user_id column added successfully.")
 
-        # stories 表新增 category
-        cursor.execute("PRAGMA table_info(stories)")
-        columns = [column[1] for column in cursor.fetchall()]
         if 'category' not in columns:
             print("Migration: Adding category column to stories table...")
             cursor.execute("ALTER TABLE stories ADD COLUMN category TEXT NOT NULL DEFAULT '其他衰事'")
             conn.commit()
-            print("Migration: category column added.")
 
-        # 確保 votes 表存在
+        # votes 表（舊版保留）
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS votes (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,31 +106,25 @@ def migrate_db():
         ON votes(story_id)
         """)
         conn.commit()
-        print("Migration: votes table and idx_votes_story_id ensured.")
 
-        # 為已存在但 token 為空的 stories 產生 token
+        # 補 stories.token
         cursor.execute("SELECT id FROM stories WHERE token IS NULL OR token = ''")
         rows = cursor.fetchall()
         if rows:
-            print(f"Migration: Generating tokens for {len(rows)} existing stories...")
             for row in rows:
                 new_token = uuid.uuid4().hex
                 cursor.execute("UPDATE stories SET token = ? WHERE id = ?", (new_token, row[0]))
             conn.commit()
-            print("Migration: tokens generated for existing stories.")
 
-        # pats 表新增 user_id / session_token
+        # pats 表補欄位
         cursor.execute("PRAGMA table_info(pats)")
         pat_columns = [column[1] for column in cursor.fetchall()]
         if 'user_id' not in pat_columns:
-            print("Migration: Adding user_id column to pats table...")
             cursor.execute("ALTER TABLE pats ADD COLUMN user_id INTEGER")
             conn.commit()
         if 'session_token' not in pat_columns:
-            print("Migration: Adding session_token column to pats table...")
             cursor.execute("ALTER TABLE pats ADD COLUMN session_token TEXT")
             conn.commit()
-            print("Migration: pats table updated.")
 
         # comments 表
         cursor.execute("""
@@ -160,7 +144,46 @@ def migrate_db():
         ON comments(story_id)
         """)
         conn.commit()
-        print("Migration: comments table ensured.")
+
+        # ===== 方案 B：新增 vote_pairs 表 =====
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vote_pairs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            story_a_id INTEGER NOT NULL,
+            story_b_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (story_a_id) REFERENCES stories(id),
+            FOREIGN KEY (story_b_id) REFERENCES stories(id)
+        )
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_vote_pairs_created_at
+        ON vote_pairs(created_at)
+        """)
+        conn.commit()
+
+        # ===== 方案 B：新增 pair_votes 表 =====
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pair_votes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pair_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            voted_story_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pair_id) REFERENCES vote_pairs(id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (voted_story_id) REFERENCES stories(id),
+            UNIQUE (pair_id, user_id)
+        )
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pair_votes_pair_id
+        ON pair_votes(pair_id)
+        """)
+        conn.commit()
+
+        print("Migration completed successfully.")
 
     except Exception as e:
         print(f"Migration error: {e}")
@@ -168,14 +191,18 @@ def migrate_db():
         conn.close()
 
 
-# 在啟動前執行遷移
+def get_story_total_pair_votes(cursor, story_id):
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM pair_votes
+        WHERE voted_story_id = ?
+    """, (story_id,))
+    row = cursor.fetchone()
+    return row["cnt"] if row else 0
+
+
+# 啟動前自動 migration
 migrate_db()
-
-
-def get_db_connection():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 @app.route("/", methods=["GET"])
@@ -296,9 +323,7 @@ def create_story():
         category = "其他衰事"
 
     if not content:
-        return jsonify({
-            "message": "送出失敗，你的慘事暫時無人接收"
-        }), 400
+        return jsonify({"message": "送出失敗，你的慘事暫時無人接收"}), 400
 
     if len(content) > 500:
         return jsonify({"message": "慘事最多 500 個字"}), 400
@@ -321,6 +346,7 @@ def create_story():
         "id": story_id,
         "content": content,
         "pat_count": 0,
+        "vote_count": 0,
         "category": category,
         "token": story_token
     }), 201
@@ -360,9 +386,7 @@ def get_random_story():
     conn.close()
 
     if not story:
-        return jsonify({
-            "message": "目前沒有慘事，快去投稿吧！"
-        }), 404
+        return jsonify({"message": "目前沒有慘事，快去投稿吧！"}), 404
 
     return jsonify({
         "id": story["id"],
@@ -372,24 +396,166 @@ def get_random_story():
     }), 200
 
 
+# ===== 方案 B：比慘 Pair API =====
+
 @app.route("/api/stories/random-pair", methods=["GET"])
 def get_random_pair():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, content, vote_count FROM stories ORDER BY RANDOM() LIMIT 2")
+
+    cursor.execute("""
+        SELECT id, content
+        FROM stories
+        ORDER BY RANDOM()
+        LIMIT 2
+    """)
     stories = cursor.fetchall()
-    conn.close()
 
     if len(stories) < 2:
-        return jsonify({
-            "message": "慘事數量不足，快去投稿吧！"
-        }), 404
+        conn.close()
+        return jsonify({"message": "慘事數量不足，快去投稿吧！"}), 404
+
+    story_a = stories[0]
+    story_b = stories[1]
+
+    cursor.execute("""
+        INSERT INTO vote_pairs (story_a_id, story_b_id)
+        VALUES (?, ?)
+    """, (story_a["id"], story_b["id"]))
+    conn.commit()
+    pair_id = cursor.lastrowid
+
+    conn.close()
 
     return jsonify({
+        "pair_id": pair_id,
         "stories": [
-            {"id": stories[0]["id"], "content": stories[0]["content"], "vote_count": stories[0]["vote_count"]},
-            {"id": stories[1]["id"], "content": stories[1]["content"], "vote_count": stories[1]["vote_count"]}
+            {
+                "id": story_a["id"],
+                "content": story_a["content"]
+            },
+            {
+                "id": story_b["id"],
+                "content": story_b["content"]
+            }
         ]
+    }), 200
+
+
+@app.route("/api/vote-pairs/<int:pair_id>/vote", methods=["POST"])
+def vote_pair(pair_id):
+    user = get_current_user()
+    if user is None:
+        return jsonify({"message": "未登入或 token 已過期"}), 401
+
+    data = request.get_json(silent=True) or {}
+    voted_story_id = data.get("voted_story_id")
+
+    if not voted_story_id:
+        return jsonify({"message": "voted_story_id 為必填"}), 400
+
+    try:
+        voted_story_id = int(voted_story_id)
+    except (ValueError, TypeError):
+        return jsonify({"message": "voted_story_id 必須為整數"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, story_a_id, story_b_id
+        FROM vote_pairs
+        WHERE id = ?
+    """, (pair_id,))
+    pair = cursor.fetchone()
+
+    if not pair:
+        conn.close()
+        return jsonify({"message": "對決組不存在"}), 404
+
+    story_a_id = pair["story_a_id"]
+    story_b_id = pair["story_b_id"]
+
+    if voted_story_id not in (story_a_id, story_b_id):
+        conn.close()
+        return jsonify({"message": "投票目標不屬於此對決組"}), 400
+
+    try:
+        cursor.execute("""
+            INSERT INTO pair_votes (pair_id, user_id, voted_story_id)
+            VALUES (?, ?, ?)
+        """, (pair_id, user["user_id"], voted_story_id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"message": "你已經對這組對決投過票了"}), 409
+
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM pair_votes
+        WHERE pair_id = ? AND voted_story_id = ?
+    """, (pair_id, story_a_id))
+    votes_a = cursor.fetchone()["cnt"]
+
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM pair_votes
+        WHERE pair_id = ? AND voted_story_id = ?
+    """, (pair_id, story_b_id))
+    votes_b = cursor.fetchone()["cnt"]
+
+    conn.close()
+
+    return jsonify({
+        "pair_id": pair_id,
+        "story_a_id": story_a_id,
+        "story_b_id": story_b_id,
+        "votes_a": votes_a,
+        "votes_b": votes_b
+    }), 200
+
+
+@app.route("/api/vote-pairs/<int:pair_id>/results", methods=["GET"])
+def get_pair_results(pair_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, story_a_id, story_b_id
+        FROM vote_pairs
+        WHERE id = ?
+    """, (pair_id,))
+    pair = cursor.fetchone()
+
+    if not pair:
+        conn.close()
+        return jsonify({"message": "對決組不存在"}), 404
+
+    story_a_id = pair["story_a_id"]
+    story_b_id = pair["story_b_id"]
+
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM pair_votes
+        WHERE pair_id = ? AND voted_story_id = ?
+    """, (pair_id, story_a_id))
+    votes_a = cursor.fetchone()["cnt"]
+
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM pair_votes
+        WHERE pair_id = ? AND voted_story_id = ?
+    """, (pair_id, story_b_id))
+    votes_b = cursor.fetchone()["cnt"]
+
+    conn.close()
+
+    return jsonify({
+        "pair_id": pair_id,
+        "story_a_id": story_a_id,
+        "story_b_id": story_b_id,
+        "votes_a": votes_a,
+        "votes_b": votes_b
     }), 200
 
 
@@ -408,9 +574,7 @@ def pat_story(story_id):
 
     if not story:
         conn.close()
-        return jsonify({
-            "message": "拍拍失敗，請稍後再試"
-        }), 404
+        return jsonify({"message": "拍拍失敗，請稍後再試"}), 404
 
     if user:
         cursor.execute(
@@ -499,9 +663,7 @@ def create_chat_room():
     story_id = data.get("story_id")
 
     if not story_id:
-        return jsonify({
-            "message": "story_id 參數為必填"
-        }), 400
+        return jsonify({"message": "story_id 參數為必填"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -514,15 +676,11 @@ def create_chat_room():
 
     if not story:
         conn.close()
-        return jsonify({
-            "message": "慘事不存在"
-        }), 404
+        return jsonify({"message": "慘事不存在"}), 404
 
     if story["pat_count"] < 1:
         conn.close()
-        return jsonify({
-            "message": "拍拍數不足，無法解鎖聊天室"
-        }), 400
+        return jsonify({"message": "拍拍數不足，無法解鎖聊天室"}), 400
 
     cursor.execute(
         "SELECT id, created_at FROM chat_rooms WHERE story_id = ?",
@@ -572,9 +730,7 @@ def get_messages(chat_room_id):
 
     if not chat_room:
         conn.close()
-        return jsonify({
-            "message": "聊天室不存在"
-        }), 404
+        return jsonify({"message": "聊天室不存在"}), 404
 
     if since:
         try:
@@ -606,9 +762,7 @@ def get_messages(chat_room_id):
         for msg in messages
     ]
 
-    return jsonify({
-        "messages": messages_list
-    }), 200
+    return jsonify({"messages": messages_list}), 200
 
 
 @app.route("/api/chat-rooms/<int:chat_room_id>/messages", methods=["POST"])
@@ -624,19 +778,13 @@ def send_message(chat_room_id):
     content = (data.get("content") or "").strip()
 
     if not content:
-        return jsonify({
-            "message": "訊息不可為空白"
-        }), 400
+        return jsonify({"message": "訊息不可為空白"}), 400
 
     if len(content) > 500:
-        return jsonify({
-            "message": "訊息長度超過限制（最多 500 字）"
-        }), 400
+        return jsonify({"message": "訊息長度超過限制（最多 500 字）"}), 400
 
     if not sender_story_id:
-        return jsonify({
-            "message": "sender_story_id 參數為必填"
-        }), 400
+        return jsonify({"message": "sender_story_id 參數為必填"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -649,9 +797,7 @@ def send_message(chat_room_id):
 
     if not chat_room:
         conn.close()
-        return jsonify({
-            "message": "聊天室不存在"
-        }), 404
+        return jsonify({"message": "聊天室不存在"}), 404
 
     jwt_payload = verify_jwt(provided_token)
     if jwt_payload:
@@ -672,9 +818,7 @@ def send_message(chat_room_id):
 
         if not is_author and not is_patter:
             conn.close()
-            return jsonify({
-                "message": "發送者身分驗證失敗，你與此聊天室無關"
-            }), 403
+            return jsonify({"message": "發送者身分驗證失敗，你與此聊天室無關"}), 403
 
         cursor.execute("SELECT id FROM stories WHERE id = ?", (sender_story_id,))
         if not cursor.fetchone():
@@ -689,9 +833,7 @@ def send_message(chat_room_id):
 
         if not sender_story:
             conn.close()
-            return jsonify({
-                "message": "發送者身分驗證失敗，無法發送訊息"
-            }), 403
+            return jsonify({"message": "發送者身分驗證失敗，無法發送訊息"}), 403
 
     try:
         cursor.execute(
@@ -717,9 +859,7 @@ def send_message(chat_room_id):
 
     except Exception:
         conn.close()
-        return jsonify({
-            "message": "訊息送出失敗，請稍後再試"
-        }), 500
+        return jsonify({"message": "訊息送出失敗，請稍後再試"}), 500
 
 
 # ===== 匿名 session API =====
@@ -781,97 +921,38 @@ def get_story_owner(story_id):
     return jsonify({"nickname": nickname}), 200
 
 
-# ===== 排行 / 投票 API =====
+# ===== 排行榜 API（改成統計 pair_votes + pat_count） =====
 
 @app.route("/api/leaderboard", methods=["GET"])
 def get_leaderboard():
     conn = get_db_connection()
     cursor = conn.cursor()
+
     cursor.execute("""
-        SELECT id, content, vote_count, pat_count,
-               (vote_count + pat_count) AS score
-        FROM stories
-        ORDER BY score DESC
-        LIMIT 10
+        SELECT s.id, s.content, s.pat_count
+        FROM stories s
     """)
     stories = cursor.fetchall()
+
+    result = []
+    for s in stories:
+        story_vote_count = get_story_total_pair_votes(cursor, s["id"])
+        score = story_vote_count + s["pat_count"]
+        result.append({
+            "id": s["id"],
+            "content": s["content"],
+            "vote_count": story_vote_count,
+            "pat_count": s["pat_count"],
+            "score": score
+        })
+
+    result.sort(key=lambda x: x["score"], reverse=True)
+
     conn.close()
 
     return jsonify({
-        "stories": [
-            {
-                "id": s["id"],
-                "content": s["content"],
-                "vote_count": s["vote_count"],
-                "pat_count": s["pat_count"],
-                "score": s["score"]
-            }
-            for s in stories
-        ]
+        "stories": result[:10]
     }), 200
-
-
-@app.route("/api/stories/<int:story_id>/vote", methods=["POST"])
-def vote_story(story_id):
-    user = get_current_user()
-    if user is None:
-        return jsonify({"message": "未登入或 token 已過期"}), 401
-
-    opponent_id_raw = request.args.get("opponent_id")
-    if opponent_id_raw is None:
-        return jsonify({"message": "opponent_id 參數為必填"}), 400
-
-    try:
-        opponent_id_int = int(opponent_id_raw)
-    except (ValueError, TypeError):
-        return jsonify({"message": "opponent_id 必須為整數"}), 400
-
-    if opponent_id_int == story_id:
-        return jsonify({"message": "不可投票給自己對抗自己"}), 400
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id FROM stories WHERE id = ?", (story_id,))
-    story = cursor.fetchone()
-    if not story:
-        conn.close()
-        return jsonify({"message": "慘事不存在"}), 404
-
-    cursor.execute("SELECT id FROM stories WHERE id = ?", (opponent_id_int,))
-    opponent = cursor.fetchone()
-    if not opponent:
-        conn.close()
-        return jsonify({"message": "對手慘事不存在"}), 404
-
-    try:
-        cursor.execute(
-            "INSERT INTO votes (user_id, story_id) VALUES (?, ?)",
-            (user["user_id"], story_id)
-        )
-        cursor.execute(
-            "UPDATE stories SET vote_count = vote_count + 1 WHERE id = ?",
-            (story_id,)
-        )
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({"message": "你已經對這則慘事投過票了"}), 409
-
-    cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (story_id,))
-    updated = cursor.fetchone()
-
-    cursor.execute("SELECT vote_count FROM stories WHERE id = ?", (opponent_id_int,))
-    opponent_updated = cursor.fetchone()
-
-    conn.close()
-
-    vote_counts = {
-        str(story_id): updated["vote_count"],
-        str(opponent_id_int): opponent_updated["vote_count"] if opponent_updated else 0,
-    }
-
-    return jsonify({"vote_counts": vote_counts}), 200
 
 
 # ===== 留言系統 API =====
@@ -972,7 +1053,7 @@ def get_my_stories():
 
     cursor.execute("""
         SELECT
-            s.id, s.content, s.pat_count, s.vote_count, s.category, s.created_at,
+            s.id, s.content, s.pat_count, s.category, s.created_at,
             (SELECT COUNT(*) FROM comments c WHERE c.story_id = s.id) AS comment_count,
             cr.id AS chat_room_id
         FROM stories s
@@ -981,23 +1062,24 @@ def get_my_stories():
         ORDER BY s.created_at DESC
     """, (user["user_id"],))
     rows = cursor.fetchall()
+
+    stories = []
+    for r in rows:
+        pair_vote_count = get_story_total_pair_votes(cursor, r["id"])
+        stories.append({
+            "id": r["id"],
+            "content": r["content"],
+            "pat_count": r["pat_count"],
+            "vote_count": pair_vote_count,
+            "category": r["category"],
+            "comment_count": r["comment_count"],
+            "chat_room_id": r["chat_room_id"],
+            "created_at": r["created_at"]
+        })
+
     conn.close()
 
-    return jsonify({
-        "stories": [
-            {
-                "id": r["id"],
-                "content": r["content"],
-                "pat_count": r["pat_count"],
-                "vote_count": r["vote_count"],
-                "category": r["category"],
-                "comment_count": r["comment_count"],
-                "chat_room_id": r["chat_room_id"],
-                "created_at": r["created_at"]
-            }
-            for r in rows
-        ]
-    }), 200
+    return jsonify({"stories": stories}), 200
 
 
 @app.route("/api/me/stats", methods=["GET"])
@@ -1010,14 +1092,18 @@ def get_my_stats():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT
-            COUNT(*) AS story_count,
-            COALESCE(SUM(pat_count), 0) AS total_pats,
-            COALESCE(SUM(vote_count), 0) AS total_votes
+        SELECT id, pat_count
         FROM stories
         WHERE user_id = ?
     """, (user["user_id"],))
-    stats = cursor.fetchone()
+    my_stories = cursor.fetchall()
+
+    story_count = len(my_stories)
+    total_pats = sum(row["pat_count"] for row in my_stories)
+    total_votes = 0
+
+    for row in my_stories:
+        total_votes += get_story_total_pair_votes(cursor, row["id"])
 
     cursor.execute("""
         SELECT COUNT(*) AS chat_room_count
@@ -1026,12 +1112,13 @@ def get_my_stats():
         WHERE s.user_id = ?
     """, (user["user_id"],))
     chat_stats = cursor.fetchone()
+
     conn.close()
 
     return jsonify({
-        "story_count": stats["story_count"],
-        "total_pats": stats["total_pats"],
-        "total_votes": stats["total_votes"],
+        "story_count": story_count,
+        "total_pats": total_pats,
+        "total_votes": total_votes,
         "chat_room_count": chat_stats["chat_room_count"]
     }), 200
 
